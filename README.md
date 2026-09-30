@@ -20,6 +20,8 @@
 - **노션 인라인 임베드** — GitHub Pages는 `X-Frame-Options`를 보내지 않아 노션에 진짜로 인라인 삽입됨(iframe 차단 없음).
 - **다크 네이비 테마** — 색맹 접근성을 고려해 검증한 카테고리 색상 팔레트.
 - **휴대폰 앱으로 설치(PWA)** — 홈 화면에 아이콘으로 설치하면 주소창 없는 전체화면 앱으로 열리고, 오프라인에서도 마지막으로 불러온 루틴이 보임.
+- **안드로이드 홈 화면 위젯 + 상태 변경 알림** — 동반 앱(`android/`)을 설치하면 4x2 위젯에 오늘 루틴과 '지금' 할 일이 나오고, 할 일이 바뀔 때마다 알림이 옴(소리·진동 각각 설정 가능).
+- **PC 바탕화면 위젯** — `desktop-widget/` 앱이 주간 루틴 전체(7일 시계 + '지금')를 바탕화면에 띄워 둠. 웹앱의 `?view=widget` 보기를 사용.
 
 ## 휴대폰 앱으로 설치하기
 
@@ -32,6 +34,15 @@
 
 > **iPhone 참고**: 홈 화면에 추가한 앱은 Safari와 저장공간이 분리되어 있어서, 처음 한 번은 앱 안에서 편집 토큰을 다시 입력해야 합니다.
 
+## 위젯 · 알림
+
+| 대상 | 내용 | 설치 방법 |
+|---|---|---|
+| 안드로이드 | 4x2 위젯(오늘 루틴) + 상태 변경 알림 | [`android/README.md`](./android/README.md) — Android Studio로 APK 빌드 후 설치 |
+| Windows PC | 바탕화면 위젯(주간 루틴 전체) | [`desktop-widget/README.md`](./desktop-widget/README.md) — .NET 8로 exe 빌드 |
+
+PC 위젯이 보여주는 화면은 `https://ksdfs1.github.io/Weekly-Routine/?view=widget`이라 브라우저에서도 바로 열어볼 수 있습니다. 두 위젯 모두 웹앱과 같은 서버에서 루틴을 읽기만 하고, 편집은 웹앱에서 합니다.
+
 ## 기술 스택
 
 | 구성 요소 | 선택 |
@@ -40,6 +51,8 @@
 | 호스팅 | GitHub Pages |
 | 백엔드 | Cloudflare Workers + KV (`worker/`) |
 | 인증 | Bearer 토큰 1개 (쓰기만 보호, 읽기는 공개) |
+| 안드로이드 위젯·알림 | Kotlin 네이티브 앱 (`android/`, AppWidget + AlarmManager + WorkManager) |
+| PC 위젯 | .NET 8 WinForms + WebView2 (`desktop-widget/`) |
 
 ## 폴더 구조
 
@@ -51,6 +64,8 @@ icons/                앱 아이콘(icon.svg 원본 + PNG)
 worker/
   src/index.js         Cloudflare Worker API (GET/POST /state)
   wrangler.toml         Worker 설정 (KV 네임스페이스 바인딩)
+android/               안드로이드 동반 앱(홈 화면 위젯 + 상태 변경 알림)
+desktop-widget/        Windows 바탕화면 위젯 앱
 AI-BUILD-GUIDE.md      이 앱을 다른 계정/PC에서 AI로 똑같이 재현하기 위한 전체 스펙 문서
 ```
 

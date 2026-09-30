@@ -130,6 +130,31 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
 - 서비스워커 등록은 `window.load` 후 `navigator.serviceWorker.register('sw.js')`, 실패(노션 iframe 등)는 무시한다.
 - iPhone에서 홈 화면에 추가한 앱은 Safari와 `localStorage`가 분리되어 있어 편집 토큰을 한 번 다시 입력해야 한다.
 
+### 5.8 위젯 보기 (`?view=widget`)와 PC 바탕화면 위젯 (`desktop-widget/`)
+- `index.html`은 URL에 `?view=widget`이 있으면 `renderApp()` 대신 `renderWidget()`을 쓴다.
+  - 그리는 내용은 '지금' 바(`nowStatusHtml()`)와 월~일 7개 카드(요일, `renderClockSVG`, 케이스 이름)를 7열 그리드로 놓은 것뿐이다.
+  - `<html class="widget">`로 스크롤을 없애고, 시계가 창 높이에 맞게 줄어든다.
+  - 30초마다 다시 그리고, 10분마다 `loadRemote()`를 호출한다.
+- `desktop-widget/`은 .NET 8 WinForms + WebView2 앱이다. 테두리 없는 창에 위젯 보기를 띄운다.
+  - 창은 작업 표시줄과 Alt+Tab에 나오지 않는다(ToolWindow). owner를 `Progman`으로 지정해서 Win+D에도 남게 하고, `WM_WINDOWPOSCHANGING`에서 항상 `HWND_BOTTOM`으로 보낸다.
+  - 트레이 메뉴 항목: 위치·크기 조정(주황 테두리 + 드래그 띠), 새로고침, 앱 열기, 자동 실행(HKCU Run), 종료.
+  - 위치와 크기는 `%APPDATA%\WeeklyRoutineWidget\settings.json`에 저장한다.
+  - Explorer가 재시작되면 창이 사라지는데, 3초 뒤 새로 연다.
+
+### 5.9 안드로이드 동반 앱 (`android/`)
+- PWA는 안드로이드 홈 화면 위젯을 만들 수 없어서, 위젯과 알림 전용 Kotlin 앱을 둔다(minSdk 26, AppCompat 없음, 의존성은 core-ktx와 work-runtime만). 편집은 웹앱에서 하고, 위젯이나 알림을 탭하면 웹앱 URL을 연다.
+- `RoutineLogic.kt`는 `activeCase` / `segmentsWithGaps` / `nowStatus`를 그대로 옮긴 코드다. 웹앱 쪽을 바꾸면 여기도 맞춘다.
+- 데이터: `GET /state`를 받아 `filesDir/state.json`에 캐시한다. `SyncWorker`가 1시간마다(네트워크 필요) 동기화하고, 위젯 ↻ 버튼과 설정의 '지금 동기화'로도 동기화할 수 있다.
+- 4x2 위젯 구성
+  - 왼쪽: Canvas로 그린 오늘 도넛 시계.
+  - 오른쪽 위: 요일·케이스 이름과 '지금' 줄. 남은 시간은 "HH:MM까지"로 표시한다.
+  - 그 아래: 오늘 블록 `ListView`. 현재 블록을 강조한다.
+- 알림
+  - `AlarmManager.setExactAndAllowWhileIdle`로 다음 경계 시각(블록 시작/끝, 자정)에 알람을 하나만 건다. 권한은 `USE_EXACT_ALARM`을 쓰고, 12 이하에서는 `SCHEDULE_EXACT_ALARM`을 쓴다.
+  - 알람이 울리면 이전 상태 키(`catId|label`, 빈 시간은 `gap`)와 비교해서 달라졌을 때만 알림을 보낸다. 그다음 위젯을 다시 그리고 다음 알람을 건다.
+  - 재부팅, 시간 변경, 앱 업데이트 때는 알람을 다시 건다.
+- 소리와 진동은 채널을 만든 뒤 바꿀 수 없다. 그래서 '소리+진동 / 소리 / 진동 / 무음' 채널 4개를 만들고, 설정의 토글 조합으로 채널을 고른다.
+
 ## 6. 백엔드: Cloudflare Worker
 
 `worker/src/index.js` — 이 내용 그대로 사용하면 된다. 개인정보나 비밀값이 코드에 없다(토큰은 배포 시 secret으로 별도 등록).

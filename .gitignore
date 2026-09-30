@@ -1,3 +1,16 @@
 node_modules/
 .wrangler/
 _extracted.js
+
+# desktop widget (.NET)
+desktop-widget/bin/
+desktop-widget/obj/
+
+# Android companion app
+android/.gradle/
+android/.idea/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+*.iml
