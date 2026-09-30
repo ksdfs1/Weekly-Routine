@@ -155,7 +155,8 @@
   .savebar .status.dirty{ color:var(--accent); font-weight:600; }
   .datatools{ display:flex; gap:8px; flex-wrap:wrap; }
 
-  .toast{ position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--surface-3); border:1px solid var(--accent); color:var(--text); font-size:.82rem; font-weight:600; padding:10px 18px; border-radius:999px; box-shadow:0 12px 30px rgba(0,0,0,.4); z-index:50; opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease; max-width:min(90vw,420px); text-align:center; }
+  /* lives outside #app so re-renders (renderApp) don't wipe a message that is showing */
+  .toast{ font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif; position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--surface-3); border:1px solid var(--accent); color:var(--text); font-size:.82rem; font-weight:600; padding:10px 18px; border-radius:999px; box-shadow:0 12px 30px rgba(0,0,0,.4); z-index:50; opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease; max-width:min(90vw,420px); text-align:center; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
 
   @media (max-width:520px){
@@ -171,6 +172,7 @@
 </head>
 <body>
 <div id="app"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script>
 (function(){
   "use strict";
@@ -447,7 +449,6 @@
       html += renderEditPanel(day, c);
     }
 
-    html += '<div id="toast" class="toast"></div>';
     app.innerHTML = html;
     bindTimeSelectDependencies();
     if (ui.caseDialog){
