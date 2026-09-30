@@ -493,12 +493,12 @@
         + '</div>';
     }
 
-    html += nowStatusHtml();
-
+    // the "지금" bar sits right under the day tabs (weekly view has no tabs, so it leads the content)
     if (ui.mode === 'edit'){
       html += '<div class="daytabs">' + state.days.map(function(d,i){
         return '<button class="daytab'+(i===ui.dayIndex?' active':'')+(isTodayIndex(i)?' today':'')+'" data-action="set-day" data-day-index="'+i+'">'+esc(d.short)+'</button>';
       }).join('') + '</div>';
+      html += nowStatusHtml();
 
       html += '<div class="casebar">'
         + '<select class="caseselect" data-action="set-case">' + day.cases.map(function(cs){
@@ -569,7 +569,7 @@
     var dayTabsHtml = '<div class="daytabs">' + state.days.map(function(d,idx){
       return '<button class="daytab'+(idx===i?' active':'')+(isTodayIndex(idx)?' today':'')+'" data-action="set-day" data-day-index="'+idx+'">'+esc(d.short)+'</button>';
     }).join('') + '</div>';
-    return dayTabsHtml + '<div class="panel daily-swipe" id="daily-swipe">'
+    return dayTabsHtml + nowStatusHtml() + '<div class="panel daily-swipe" id="daily-swipe">'
       + '<div class="clocksection">'
       + '<div class="clockwrap">'+svg+'</div>'
       + '<div class="clockmeta">'
@@ -598,7 +598,7 @@
 
   function renderDisplayAllDays(){
     var cards = state.days.map(function(day, i){ return dayCardHtml(day, i); }).join('');
-    return '<div class="panel"><div class="daygrid" id="daygrid">' + cards + '</div></div>';
+    return nowStatusHtml() + '<div class="panel"><div class="daygrid" id="daygrid">' + cards + '</div></div>';
   }
 
   function renderEditPanel(day, c){
