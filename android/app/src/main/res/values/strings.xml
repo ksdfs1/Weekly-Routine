@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Weekly Routine</string>
+    <string name="widget_label">오늘 루틴</string>
+    <string name="widget_description">오늘 루틴과 지금 할 일을 보여줘요</string>
+    <string name="widget_clock_desc">오늘 24시간 루틴 시계</string>
+    <string name="refresh">새로고침</string>
+</resources>

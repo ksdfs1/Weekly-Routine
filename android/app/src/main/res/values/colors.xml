@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- same palette as the :root tokens in index.html -->
+<resources>
+    <color name="bg">#080D1A</color>
+    <color name="surface">#111A30</color>
+    <color name="surface_2">#182545</color>
+    <color name="border">#28365A</color>
+    <color name="border_soft">#1B2846</color>
+    <color name="text">#EEF1FB</color>
+    <color name="text_dim">#A7B2CF</color>
+    <color name="text_mute">#6D7897</color>
+    <color name="accent">#F5B95C</color>
+    <color name="accent_ink">#241505</color>
+    <color name="unassigned">#243354</color>
+</resources>
