@@ -118,11 +118,9 @@
   .now-line{ font-size:.8rem; color:var(--accent); font-weight:700; }
 
   /* ---- weekly display grid ---- */
-  .daygrid{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:26px 22px; }
-  @media (max-width:640px){
-    .daygrid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
-  }
-  .daycard{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; min-width:0; }
+  .daygrid{ display:flex; flex-direction:column; gap:26px; }
+  .daygrid-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:22px; }
+  .daycard{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; flex:1 1 200px; max-width:300px; min-width:130px; }
   .daycard-head{ display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; }
   .daycard-label{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:.85rem; color:var(--text); }
   .daycard-label.today{ color:var(--accent); }
@@ -478,24 +476,30 @@
       + '</div></div></div>';
   }
 
-  function renderDisplayAllDays(){
-    var cards = state.days.map(function(day, i){
-      var c = activeCase(day);
-      var today = isTodayIndex(i);
-      var svg = renderClockSVG(day, c, 300, today);
-      var options = day.cases.map(function(cs){
-        return '<option value="'+cs.id+'"'+(cs.id===day.activeCaseId?' selected':'')+'>'+esc(cs.name)+'</option>';
-      }).join('');
-      return '<div class="daycard">'
-        + '<div class="daycard-head">'
-        + '<span class="daycard-label'+(today?' today':'')+'">'+esc(day.label)+(today?' · 오늘':'')+'</span>'
-        + '<select class="caseselect small" data-action="set-case-for-day" data-day-index="'+i+'">'+options+'</select>'
-        + '</div>'
-        + svg
-        + '<div class="legend">'+legendFor(c)+'</div>'
-        + '</div>';
+  function dayCardHtml(day, i){
+    var c = activeCase(day);
+    var today = isTodayIndex(i);
+    var svg = renderClockSVG(day, c, 300, today);
+    var options = day.cases.map(function(cs){
+      return '<option value="'+cs.id+'"'+(cs.id===day.activeCaseId?' selected':'')+'>'+esc(cs.name)+'</option>';
     }).join('');
-    return '<div class="panel"><div class="daygrid">' + cards + '</div></div>';
+    return '<div class="daycard">'
+      + '<div class="daycard-head">'
+      + '<span class="daycard-label'+(today?' today':'')+'">'+esc(day.label)+(today?' · 오늘':'')+'</span>'
+      + '<select class="caseselect small" data-action="set-case-for-day" data-day-index="'+i+'">'+options+'</select>'
+      + '</div>'
+      + svg
+      + '<div class="legend">'+legendFor(c)+'</div>'
+      + '</div>';
+  }
+
+  function renderDisplayAllDays(){
+    var topRow = state.days.slice(0,4).map(function(day,i){ return dayCardHtml(day, i); }).join('');
+    var bottomRow = state.days.slice(4,7).map(function(day,i){ return dayCardHtml(day, i+4); }).join('');
+    return '<div class="panel"><div class="daygrid">'
+      + '<div class="daygrid-row">' + topRow + '</div>'
+      + '<div class="daygrid-row">' + bottomRow + '</div>'
+      + '</div></div>';
   }
 
   function renderEditPanel(day, c){
