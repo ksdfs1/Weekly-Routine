@@ -16,6 +16,7 @@
 - **크로스 디바이스 동기화**: 어느 기기에서 열어도 같은 데이터가 보이도록 별도 백엔드에 저장한다.
 - **노션 등에 실제로 인라인 임베드**할 수 있어야 한다(iframe으로 삽입했을 때 바로 보이고 편집도 가능).
 - 편집은 아무나 못 하도록 **토큰 기반으로 잠금**되어 있고, 조회(시현)는 누구나 가능하다.
+- **휴대폰 홈 화면에 앱으로 설치(PWA)**할 수 있고, 설치하면 전체화면·오프라인으로 실행된다.
 
 ## 2. 기술 스택과 이유
 
@@ -83,6 +84,7 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
 - 처음 접속하면 읽기 전용 상태. 상단에 "읽기 전용 · 편집하려면 탭" 배지가 보인다.
 - 배지를 누르면 토큰 입력 폼이 뜨고, 맞는 `WRITE_TOKEN`을 넣으면 `localStorage`에 저장되고 편집 모드로 전환된다.
 - 편집 권한이 있으면 "🔓 편집 잠금" 버튼으로 언제든 다시 읽기 전용으로 돌아갈 수 있다(토큰을 로컬에서 지움).
+- 상단에는 항상 "↻ 새로고침" 버튼이 있다(조회·편집 모드 공통). 누르면 `GET /state`로 최신 상태를 다시 받아 그리고 "최신 내용을 불러왔어요" 토스트를 띄운다(실패 시 "불러오지 못했어요" 안내, 기존 화면 유지). 저장하지 않은 변경사항이 있으면 첫 번째 탭은 "↻ 변경 버리고 새로고침?"으로 바뀌며 경고만 하고, 4초 안에 한 번 더 눌러야 변경을 버리고 불러온다. 자동(주기적) 새로고침은 하지 않는다.
 - 저장(`POST /state`) 시 서버가 401을 주면(토큰 불일치) 자동으로 토큰을 지우고 읽기 전용으로 내려간다.
 
 ### 5.2 편집 모드
@@ -108,6 +110,15 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
 
 ### 5.5 임베드
 - GitHub Pages URL을 노션의 "임베드" 블록에 붙여넣으면 iframe으로 바로 표시된다(별도 프록시 불필요).
+
+### 5.6 휴대폰 앱(PWA)
+- 빌드 과정 없이 정적 파일만 추가한다: `manifest.webmanifest`, `sw.js`, `icons/`(`icon.svg` 원본 + `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`(180px)). GitHub Pages가 `/<repo>/` 하위 경로에서 서비스되므로 manifest의 `start_url`/`scope`/아이콘 경로는 모두 **상대 경로**(`./`)로 쓴다.
+- manifest: `display: standalone`, `orientation: portrait`, `background_color`/`theme_color` `#080d1a`. 아이콘은 다크 네이비 배경 위에 카테고리 색 도넛 시계 모티프이며, 내용이 maskable 안전 영역(중앙 80%) 안에 들어가도록 그린다.
+- `index.html` `<head>`: `<link rel="manifest">`, `theme-color`, `apple-touch-icon`, `apple-mobile-web-app-capable`/`-status-bar-style: black-translucent`/`-title` 메타.
+- 노치·홈바 대응: `viewport-fit=cover` + `#app` 패딩, 하단 저장바(sticky), 토스트 위치에 `env(safe-area-inset-*)`를 더한다.
+- `sw.js`: install 때 앱 셸(`./`, `index.html`, manifest, 아이콘)을 캐시한다. HTML(페이지 이동)은 **network-first**라 push한 수정이 바로 반영되고, 오프라인이면 캐시로 폴백한다(`/demo/`는 본 앱으로 폴백하지 않음). 아이콘 등은 cache-first. **다른 출처(Worker API) 요청은 가로채지 않는다** — 데이터 오프라인 캐시는 기존 `localStorage` 캐시가 담당한다. 캐시를 갱신해야 하면 `CACHE_VERSION`을 올린다.
+- 서비스워커 등록은 `window.load` 후 `navigator.serviceWorker.register('sw.js')`, 실패(노션 iframe 등)는 무시한다.
+- iPhone에서 홈 화면에 추가한 앱은 Safari와 `localStorage`가 분리되어 있어 편집 토큰을 한 번 다시 입력해야 한다.
 
 ## 6. 백엔드: Cloudflare Worker
 
@@ -220,6 +231,7 @@ var API_BASE = "https://weekly-routine-api.<YOUR_SUBDOMAIN>.workers.dev";
 11. **GitHub에 push**: `index.html`, `worker/` 폴더를 커밋하고 `main`에 push한다. 몇 초~몇 분 뒤 `https://<github-username>.github.io/<repo-name>/`에서 앱이 열린다.
 12. **편집 잠금 해제**: 배포된 앱을 열고 "읽기 전용 · 편집하려면 탭"을 눌러 7번에서 만든 토큰을 입력한다. 이후 이 브라우저에서는 편집 모드가 계속 유지된다(다른 기기/브라우저에서는 다시 토큰을 입력해야 함).
 13. **노션에 임베드**: 노션 페이지에서 `/embed` → GitHub Pages URL 붙여넣기.
+14. **휴대폰에 앱으로 설치**: 휴대폰 브라우저로 GitHub Pages URL 접속 → Android Chrome은 ⋮ 메뉴 "앱 설치", iPhone Safari는 공유 → "홈 화면에 추가". (5.6의 PWA 파일들이 함께 push되어 있어야 함)
 
 ## 9. 보안 — 반드시 지킬 것
 
