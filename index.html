@@ -28,11 +28,10 @@
   body{ background: radial-gradient(1100px 700px at 15% -8%, var(--bg-grad), var(--bg) 60%); color:var(--text); }
   #app{
     font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-    max-width:960px; margin:0 auto;
+    max-width:1600px; margin:0 auto;
     padding-inline:16px; padding-block:22px 40px;
     display:flex; flex-direction:column; gap:18px;
   }
-  #app.wide{ max-width:1400px; }
   h1,h2,h3{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; margin:0; letter-spacing:-0.01em; text-wrap:balance; }
   .tabular{ font-variant-numeric:tabular-nums; }
 
@@ -119,7 +118,7 @@
   .now-line{ font-size:.8rem; color:var(--accent); font-weight:700; }
 
   /* ---- weekly display grid ---- */
-  .daygrid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:14px; }
+  .daygrid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; }
   .daycard{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; min-width:0; }
   .daycard-head{ display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; }
   .daycard-label{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:.85rem; color:var(--text); }
@@ -238,6 +237,7 @@
 
   var ui = {
     mode: 'display',
+    displayScope: 'daily',   // 'daily' | 'weekly'
     dayIndex: (new Date().getDay() + 6) % 7,
     editingBlockId: null,
     caseDialog: null,        // {mode:'add'|'rename'}
@@ -370,8 +370,11 @@
       + (canWrite
           ? '<button class="lock-btn" data-action="lock">🔓 편집 잠금</button>'
           : '<button class="readonly-badge" data-action="open-token-dialog">읽기 전용 · 편집하려면 탭</button>')
+      + (ui.mode === 'display'
+          ? '<label class="switchwrap"><input type="checkbox" id="scope-toggle"'+(ui.displayScope==='weekly'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.displayScope==='weekly'?'주간':'일간')+'</span></label>'
+          : '')
       + (canWrite
-          ? '<label class="switchwrap"><input type="checkbox" id="edit-toggle"'+(ui.mode==='edit'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">편집 모드</span></label>'
+          ? '<label class="switchwrap"><input type="checkbox" id="edit-toggle"'+(ui.mode==='edit'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.mode==='edit'?'편집 모드':'시현 모드')+'</span></label>'
           : '')
       + '</div></div>';
 
@@ -414,14 +417,13 @@
     }
 
     if (ui.mode === 'display'){
-      html += renderDisplayAllDays();
+      html += (ui.displayScope === 'weekly') ? renderDisplayAllDays() : renderDisplayDaily();
     } else {
       html += renderEditPanel(day, c);
     }
 
     html += '<div id="toast" class="toast"></div>';
     app.innerHTML = html;
-    app.className = ui.mode === 'display' ? 'wide' : '';
     bindTimeSelectDependencies();
     if (ui.caseDialog){
       var dialogInput = document.getElementById('case-dialog-input');
@@ -451,11 +453,33 @@
     markDirty();
   }
 
+  function renderDisplayDaily(){
+    var i = ui.dayIndex;
+    var day = dayByIndex(i);
+    var c = activeCase(day);
+    var today = isTodayIndex(i);
+    var svg = renderClockSVG(day, c, 340, today);
+    var options = day.cases.map(function(cs){
+      return '<option value="'+cs.id+'"'+(cs.id===day.activeCaseId?' selected':'')+'>'+esc(cs.name)+'</option>';
+    }).join('');
+    var dayTabsHtml = '<div class="daytabs">' + state.days.map(function(d,idx){
+      return '<button class="daytab'+(idx===i?' active':'')+(isTodayIndex(idx)?' today':'')+'" data-action="set-day" data-day-index="'+idx+'">'+esc(d.short)+'</button>';
+    }).join('') + '</div>';
+    return dayTabsHtml + '<div class="panel">'
+      + '<div class="clocksection">'
+      + '<div class="clockwrap">'+svg+'</div>'
+      + '<div class="clockmeta">'
+      + '<h3>'+esc(day.label)+(today?' · 오늘':'')+'</h3>'
+      + '<select class="caseselect" data-action="set-case-for-day" data-day-index="'+i+'">'+options+'</select>'
+      + '<div class="legend">'+legendFor(c)+'</div>'
+      + '</div></div></div>';
+  }
+
   function renderDisplayAllDays(){
     var cards = state.days.map(function(day, i){
       var c = activeCase(day);
       var today = isTodayIndex(i);
-      var svg = renderClockSVG(day, c, 168, today);
+      var svg = renderClockSVG(day, c, 260, today);
       var options = day.cases.map(function(cs){
         return '<option value="'+cs.id+'"'+(cs.id===day.activeCaseId?' selected':'')+'>'+esc(cs.name)+'</option>';
       }).join('');
@@ -604,6 +628,10 @@
     ui.mode = ui.mode === 'edit' ? 'display' : 'edit';
     ui.editingBlockId = null;
     resetTransientUI();
+    renderApp();
+  }
+  function toggleDisplayScope(){
+    ui.displayScope = ui.displayScope === 'weekly' ? 'daily' : 'weekly';
     renderApp();
   }
   function setDay(i){ ui.dayIndex = i; ui.editingBlockId = null; resetTransientUI(); renderApp(); }
@@ -837,6 +865,7 @@
       else if (t.matches && t.matches('[data-action="cat-color"]')) setCatColor(t.dataset.catId, t.value);
       else if (t.id === 'import-file' && t.files && t.files[0]) handleImportFile(t.files[0]);
       else if (t.id === 'edit-toggle') toggleEditMode();
+      else if (t.id === 'scope-toggle') toggleDisplayScope();
     });
     document.addEventListener('input', function(ev){
       var t = ev.target;
