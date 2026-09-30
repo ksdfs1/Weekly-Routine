@@ -134,6 +134,14 @@
   .legenditem{ display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--text-dim); }
   .legenditem .dur{ margin-left:auto; color:var(--text-mute); font-size:.76rem; }
   .now-line{ font-size:.8rem; color:var(--accent); font-weight:700; }
+  /* "지금" bar: what the routine says you should be doing right now (today's active case) */
+  .nowbar{ display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border-soft); border-left:4px solid var(--nowbar-color, var(--unassigned)); border-radius:14px; padding:10px 14px; }
+  .nowbar-tag{ flex:0 0 auto; font-size:.72rem; font-weight:700; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:2px 8px; }
+  .nowbar-body{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .nowbar-title{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:1rem; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .nowbar-title .memo{ font-family:"IBM Plex Sans", system-ui, sans-serif; font-weight:500; font-size:.85rem; color:var(--text-dim); }
+  .nowbar-sub{ font-size:.78rem; color:var(--text-mute); line-height:1.5; }
+  .nowbar-sub b{ color:var(--text-dim); font-weight:600; }
   .daily-swipe{ cursor:grab; touch-action:pan-y; }
   .daily-swipe:active{ cursor:grabbing; }
 
@@ -375,15 +383,27 @@
     if (showNow){
       var now = new Date();
       var nowMin = now.getHours()*60 + now.getMinutes();
+      // the hand starts at the inner ring so it doesn't cross the "지금" text in the middle
       var np = polar(cx,cy,rOuter+size*0.03,nowMin);
-      parts.push('<line x1="'+cx+'" y1="'+cy+'" x2="'+np.x.toFixed(2)+'" y2="'+np.y.toFixed(2)+'" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"></line>');
-      parts.push('<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="var(--accent)"></circle>');
+      var ip = polar(cx,cy,rInner-size*0.02,nowMin);
+      parts.push('<line x1="'+ip.x.toFixed(2)+'" y1="'+ip.y.toFixed(2)+'" x2="'+np.x.toFixed(2)+'" y2="'+np.y.toFixed(2)+'" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"></line>');
+      parts.push('<circle cx="'+ip.x.toFixed(2)+'" cy="'+ip.y.toFixed(2)+'" r="4" fill="var(--accent)"></circle>');
+    }
+    // today's clock shows what should be happening now in the middle; other days show day + case
+    var centerTop = day.short+'요일', centerSub = c.name, centerColor = 'var(--text)', ariaNow = '';
+    if (showNow){
+      var st = nowStatus();
+      var nm = nowStatusName(st);
+      centerTop = nm.length > 8 ? nm.slice(0,7)+'…' : nm;
+      centerSub = fmtDur(st.remaining)+' 남음';
+      if (st.cur && st.cat) centerColor = st.cat.color;
+      ariaNow = ', 지금 '+nm+' '+centerSub;
     }
     var centerLines = [
-      '<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" font-size="'+(size*0.062)+'" font-weight="800" fill="var(--text)" font-family="Sora, sans-serif">'+esc(day.short+'요일')+'</text>',
-      '<text x="'+cx+'" y="'+(cy+16)+'" text-anchor="middle" font-size="'+(size*0.036)+'" fill="var(--text-mute)" font-family=\'IBM Plex Sans, sans-serif\'>'+esc(c.name)+'</text>'
+      '<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" font-size="'+(size*0.062)+'" font-weight="800" fill="'+centerColor+'" font-family="Sora, sans-serif">'+esc(centerTop)+'</text>',
+      '<text x="'+cx+'" y="'+(cy+16)+'" text-anchor="middle" font-size="'+(size*0.036)+'" fill="var(--text-mute)" font-family=\'IBM Plex Sans, sans-serif\'>'+esc(centerSub)+'</text>'
     ];
-    return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="max-width:100%;height:auto;display:block;" role="img" aria-label="'+esc(day.label+' '+c.name+' 24시간 루틴')+'">'
+    return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="max-width:100%;height:auto;display:block;" role="img" aria-label="'+esc(day.label+' '+c.name+' 24시간 루틴'+ariaNow)+'">'
       + parts.join('') + centerLines.join('') + '</svg>';
   }
 
@@ -391,6 +411,49 @@
   var app = document.getElementById('app');
 
   function isTodayIndex(i){ return i === ((new Date().getDay()+6)%7); }
+
+  // what today's active case says should be happening now, plus what comes next
+  function nowStatus(){
+    var now = new Date();
+    var nowMin = now.getHours()*60 + now.getMinutes();
+    var ti = (now.getDay()+6)%7;
+    var blocks = sortedBlocks(activeCase(dayByIndex(ti)));
+    var cur = null, prevEnd = 0, next = null, nextTomorrow = false;
+    blocks.forEach(function(b){
+      if (!cur && b.start <= nowMin && nowMin < b.end) cur = b;
+      if (b.end <= nowMin && b.end > prevEnd) prevEnd = b.end;
+      if (!next && b.start > nowMin) next = b;
+    });
+    if (!next){
+      next = sortedBlocks(activeCase(dayByIndex((ti+1)%7)))[0] || null;
+      nextTomorrow = !!next;
+    }
+    var st = { cur: cur, next: next, nextTomorrow: nextTomorrow, cat: cur ? catById(cur.catId) : null };
+    if (cur){
+      st.start = cur.start; st.end = cur.end; st.remaining = cur.end - nowMin;
+    } else {
+      st.start = prevEnd;
+      st.end = (next && !nextTomorrow) ? next.start : 1440;
+      st.remaining = (next ? (nextTomorrow ? 1440 + next.start : next.start) : 1440) - nowMin;
+    }
+    return st;
+  }
+  function nowStatusName(st){ return st.cur ? ((st.cat||{}).name || '?') : '미지정 시간'; }
+
+  function nowStatusHtml(){
+    var st = nowStatus();
+    var color = st.cur ? ((st.cat||{}).color || 'var(--unassigned)') : 'var(--unassigned)';
+    var memo = st.cur && st.cur.label ? '<span class="memo"> · '+esc(st.cur.label)+'</span>' : '';
+    var sub = '<span class="tabular">'+fmtMin(st.start)+'–'+fmtMin(st.end)+'</span> · <b class="tabular">'+fmtDur(st.remaining)+' 남음</b>';
+    if (st.next){
+      var nc = catById(st.next.catId) || {name:'?'};
+      sub += ' · 다음: '+esc(st.next.label || nc.name)+' <span class="tabular">'+(st.nextTomorrow?'내일 ':'')+fmtMin(st.next.start)+'</span>';
+    }
+    return '<div id="now-status" class="nowbar" style="--nowbar-color:'+color+'" role="status">'
+      + '<span class="nowbar-tag">지금</span>'
+      + '<div class="nowbar-body"><div class="nowbar-title">'+esc(nowStatusName(st))+memo+'</div>'
+      + '<div class="nowbar-sub">'+sub+'</div></div></div>';
+  }
 
   function renderApp(){
     var day = dayByIndex(ui.dayIndex);
@@ -429,6 +492,8 @@
         + '<div class="hint">토큰은 이 루틴을 처음 만들 때 한 번 발급돼요. 모르면 편집할 수 없고, 시현만 가능해요.</div>'
         + '</div>';
     }
+
+    html += nowStatusHtml();
 
     if (ui.mode === 'edit'){
       html += '<div class="daytabs">' + state.days.map(function(d,i){
@@ -957,7 +1022,10 @@
   }
 
   setInterval(function(){
-    if (ui.mode === 'display') renderApp();
+    if (ui.mode === 'display'){ renderApp(); return; }
+    // edit mode: a full re-render would wipe the form being typed in, so only swap the "지금" bar
+    var bar = document.getElementById('now-status');
+    if (bar) bar.outerHTML = nowStatusHtml();
   }, 30000);
 
   /* drag-to-scroll the weekly day strip with the mouse (touch scrolls natively) */
