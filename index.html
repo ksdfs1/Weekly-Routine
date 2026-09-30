@@ -118,9 +118,12 @@
   .now-line{ font-size:.8rem; color:var(--accent); font-weight:700; }
 
   /* ---- weekly display grid ---- */
-  .daygrid{ display:flex; flex-direction:column; gap:26px; }
-  .daygrid-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:22px; }
-  .daycard{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; flex:1 1 200px; max-width:300px; min-width:130px; }
+  .daygrid{ display:flex; gap:22px; overflow-x:auto; overflow-y:hidden; padding-block:2px 12px; cursor:grab; scrollbar-width:thin; scrollbar-color:var(--border) transparent; -webkit-overflow-scrolling:touch; }
+  .daygrid.dragging{ cursor:grabbing; user-select:none; -webkit-user-select:none; }
+  .daygrid::-webkit-scrollbar{ height:8px; }
+  .daygrid::-webkit-scrollbar-thumb{ background:var(--border); border-radius:999px; }
+  .daygrid::-webkit-scrollbar-track{ background:transparent; }
+  .daycard{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; flex:0 0 320px; }
   .daycard-head{ display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; }
   .daycard-label{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:.85rem; color:var(--text); }
   .daycard-label.today{ color:var(--accent); }
@@ -494,12 +497,8 @@
   }
 
   function renderDisplayAllDays(){
-    var topRow = state.days.slice(0,4).map(function(day,i){ return dayCardHtml(day, i); }).join('');
-    var bottomRow = state.days.slice(4,7).map(function(day,i){ return dayCardHtml(day, i+4); }).join('');
-    return '<div class="panel"><div class="daygrid">'
-      + '<div class="daygrid-row">' + topRow + '</div>'
-      + '<div class="daygrid-row">' + bottomRow + '</div>'
-      + '</div></div>';
+    var cards = state.days.map(function(day, i){ return dayCardHtml(day, i); }).join('');
+    return '<div class="panel"><div class="daygrid" id="daygrid">' + cards + '</div></div>';
   }
 
   function renderEditPanel(day, c){
@@ -891,6 +890,32 @@
   setInterval(function(){
     if (ui.mode === 'display') renderApp();
   }, 30000);
+
+  /* drag-to-scroll the weekly day strip with the mouse (touch scrolls natively) */
+  var dragScroll = null;
+  document.addEventListener('mousedown', function(ev){
+    var grid = ev.target.closest('#daygrid');
+    if (!grid) return;
+    dragScroll = { grid: grid, startX: ev.pageX, startScroll: grid.scrollLeft, moved: false };
+  });
+  document.addEventListener('mousemove', function(ev){
+    if (!dragScroll) return;
+    var dx = ev.pageX - dragScroll.startX;
+    if (!dragScroll.moved && Math.abs(dx) > 4){
+      dragScroll.moved = true;
+      dragScroll.grid.classList.add('dragging');
+    }
+    if (dragScroll.moved){
+      ev.preventDefault();
+      dragScroll.grid.scrollLeft = dragScroll.startScroll - dx;
+    }
+  });
+  function endDragScroll(){
+    if (dragScroll && dragScroll.grid) dragScroll.grid.classList.remove('dragging');
+    dragScroll = null;
+  }
+  document.addEventListener('mouseup', endDragScroll);
+  document.addEventListener('mouseleave', endDragScroll);
 
   /* ============== boot ============== */
   renderApp();
