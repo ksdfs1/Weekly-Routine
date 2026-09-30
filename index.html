@@ -32,21 +32,25 @@
     padding-inline:16px; padding-block:22px 40px;
     display:flex; flex-direction:column; gap:18px;
   }
+  #app.wide{ max-width:1400px; }
   h1,h2,h3{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; margin:0; letter-spacing:-0.01em; text-wrap:balance; }
   .tabular{ font-variant-numeric:tabular-nums; }
 
   /* ---- top bar ---- */
   .topbar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
   .brand{ display:flex; flex-direction:column; gap:2px; }
-  .brand h1{ font-size:1.35rem; font-weight:800; color:var(--text); }
-  .brand p{ margin:0; font-size:.8rem; color:var(--text-mute); }
-  .modebtns{ display:flex; gap:6px; background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:4px; }
-  .modebtn{ appearance:none; border:none; background:transparent; color:var(--text-dim); font:inherit; font-weight:600; font-size:.85rem; padding:8px 16px; border-radius:999px; cursor:pointer; }
-  .modebtn.active{ background:var(--accent); color:var(--accent-ink); }
+  .brand h1{ font-size:2.025rem; font-weight:800; color:var(--text); }
   .readonly-badge{ font-size:.72rem; font-weight:600; color:var(--text-mute); border:1px solid var(--border); border-radius:999px; padding:4px 10px; white-space:nowrap; cursor:pointer; }
   .readonly-badge:hover{ border-color:var(--accent); color:var(--text); }
   .lock-btn{ appearance:none; border:1px solid var(--border); background:var(--surface-2); color:var(--text-mute); font:inherit; font-size:.72rem; font-weight:600; padding:5px 10px; border-radius:999px; cursor:pointer; }
   .lock-btn:hover{ border-color:var(--danger); color:var(--danger); }
+  .switchwrap{ display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+  .switchwrap input{ position:absolute; opacity:0; width:0; height:0; }
+  .switch-track{ width:40px; height:22px; border-radius:999px; background:var(--surface-2); border:1px solid var(--border); position:relative; flex:0 0 auto; transition:background .2s ease, border-color .2s ease; }
+  .switch-thumb{ position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--text-mute); transition:transform .2s ease, background .2s ease; }
+  .switchwrap input:checked + .switch-track{ background:var(--accent); border-color:var(--accent); }
+  .switchwrap input:checked + .switch-track .switch-thumb{ transform:translateX(18px); background:var(--accent-ink); }
+  .switch-label{ font-size:.82rem; font-weight:600; color:var(--text-dim); }
 
   /* ---- day tabs ---- */
   .daytabs{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
@@ -113,6 +117,16 @@
   .legenditem{ display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--text-dim); }
   .legenditem .dur{ margin-left:auto; color:var(--text-mute); font-size:.76rem; }
   .now-line{ font-size:.8rem; color:var(--accent); font-weight:700; }
+
+  /* ---- weekly display grid ---- */
+  .daygrid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:14px; }
+  .daycard{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; min-width:0; }
+  .daycard-head{ display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; }
+  .daycard-label{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:.85rem; color:var(--text); }
+  .daycard-label.today{ color:var(--accent); }
+  .caseselect.small{ width:100%; font-size:.74rem; padding:6px 6px; min-width:0; }
+  .daycard .legend{ width:100%; gap:4px; }
+  .daycard .legenditem{ font-size:.7rem; gap:6px; }
 
   /* ---- data tools / save bar ---- */
   .savebar{ position:sticky; bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
@@ -336,7 +350,7 @@
       '<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" font-size="'+(size*0.062)+'" font-weight="800" fill="var(--text)" font-family="Sora, sans-serif">'+esc(day.short+'요일')+'</text>',
       '<text x="'+cx+'" y="'+(cy+16)+'" text-anchor="middle" font-size="'+(size*0.036)+'" fill="var(--text-mute)" font-family=\'IBM Plex Sans, sans-serif\'>'+esc(c.name)+'</text>'
     ];
-    return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" role="img" aria-label="'+esc(day.label+' '+c.name+' 24시간 루틴')+'">'
+    return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="max-width:100%;height:auto;display:block;" role="img" aria-label="'+esc(day.label+' '+c.name+' 24시간 루틴')+'">'
       + parts.join('') + centerLines.join('') + '</svg>';
   }
 
@@ -351,15 +365,15 @@
     var html = '';
 
     html += '<div class="topbar">'
-      + '<div class="brand"><h1>Weekly Routine</h1><p>5분 단위로 요일별 루틴을 편집하고, 24시간 원형 시계로 시현해요</p></div>'
+      + '<div class="brand"><h1>Weekly Routine</h1></div>'
       + '<div style="display:flex;align-items:center;gap:10px;">'
       + (canWrite
           ? '<button class="lock-btn" data-action="lock">🔓 편집 잠금</button>'
           : '<button class="readonly-badge" data-action="open-token-dialog">읽기 전용 · 편집하려면 탭</button>')
-      + '<div class="modebtns">'
-      + '<button class="modebtn'+(ui.mode==='display'?' active':'')+'" data-action="set-mode" data-mode="display">시현</button>'
-      + (canWrite ? '<button class="modebtn'+(ui.mode==='edit'?' active':'')+'" data-action="set-mode" data-mode="edit">편집</button>' : '')
-      + '</div></div></div>';
+      + (canWrite
+          ? '<label class="switchwrap"><input type="checkbox" id="edit-toggle"'+(ui.mode==='edit'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">편집 모드</span></label>'
+          : '')
+      + '</div></div>';
 
     if (ui.tokenDialogOpen){
       html += '<div class="panel">'
@@ -373,39 +387,41 @@
         + '</div>';
     }
 
-    html += '<div class="daytabs">' + state.days.map(function(d,i){
-      return '<button class="daytab'+(i===ui.dayIndex?' active':'')+(isTodayIndex(i)?' today':'')+'" data-action="set-day" data-day-index="'+i+'">'+esc(d.short)+'</button>';
-    }).join('') + '</div>';
+    if (ui.mode === 'edit'){
+      html += '<div class="daytabs">' + state.days.map(function(d,i){
+        return '<button class="daytab'+(i===ui.dayIndex?' active':'')+(isTodayIndex(i)?' today':'')+'" data-action="set-day" data-day-index="'+i+'">'+esc(d.short)+'</button>';
+      }).join('') + '</div>';
 
-    html += '<div class="casebar">'
-      + '<select class="caseselect" data-action="set-case">' + day.cases.map(function(cs){
-          return '<option value="'+cs.id+'"'+(cs.id===day.activeCaseId?' selected':'')+'>'+esc(cs.name)+'</option>';
-        }).join('') + '</select>';
-    if (canWrite){
+      html += '<div class="casebar">'
+        + '<select class="caseselect" data-action="set-case">' + day.cases.map(function(cs){
+            return '<option value="'+cs.id+'"'+(cs.id===day.activeCaseId?' selected':'')+'>'+esc(cs.name)+'</option>';
+          }).join('') + '</select>';
       if (ui.caseDialog){
         var dialogDefault = ui.caseDialog.mode === 'rename' ? c.name : '새 케이스';
         html += '<form id="case-dialog-form" style="display:flex;gap:6px;align-items:center;">'
           + '<input type="text" id="case-dialog-input" value="'+esc(dialogDefault)+'" maxlength="40" style="min-width:160px;">'
           + '<button type="submit" class="btn primary">'+(ui.caseDialog.mode==='rename'?'저장':'추가')+'</button>'
           + '<button type="button" class="icon-btn" data-action="cancel-case-dialog">취소</button>'
-          + '</form>';
+          + '</form>'
+          + '<div id="case-dialog-err" style="width:100%;"></div>';
       } else {
         html += '<button class="icon-btn" data-action="add-case">+ 케이스 추가</button>'
           + '<button class="icon-btn" data-action="rename-case">이름 변경</button>'
           + '<button class="icon-btn" data-action="duplicate-case">복제</button>'
           + '<button class="icon-btn danger" data-action="delete-case"'+(day.cases.length<=1?' disabled':'')+'>'+(ui.caseDeleteArmed?'정말 삭제할까요?':'삭제')+'</button>';
       }
+      html += '</div>';
     }
-    html += '</div>';
 
     if (ui.mode === 'display'){
-      html += renderDisplayPanel(day, c);
+      html += renderDisplayAllDays();
     } else {
       html += renderEditPanel(day, c);
     }
 
     html += '<div id="toast" class="toast"></div>';
     app.innerHTML = html;
+    app.className = ui.mode === 'display' ? 'wide' : '';
     bindTimeSelectDependencies();
     if (ui.caseDialog){
       var dialogInput = document.getElementById('case-dialog-input');
@@ -430,19 +446,29 @@
     return items.join('');
   }
 
-  function renderDisplayPanel(day, c){
-    var today = isTodayIndex(ui.dayIndex);
-    var svg = renderClockSVG(day, c, 340, today);
-    var now = new Date();
-    var nowStr = pad2(now.getHours())+':'+pad2(now.getMinutes());
-    return '<div class="panel">'
-      + '<div class="clocksection">'
-      + '<div class="clockwrap">'+svg+'</div>'
-      + '<div class="clockmeta">'
-      + '<h3>'+esc(day.label)+' · '+esc(c.name)+'</h3>'
-      + (today ? '<div class="now-line tabular">● 지금 '+nowStr+'</div>' : '<div class="sub">오늘 요일이 아니에요</div>')
-      + '<div class="legend">'+legendFor(c)+'</div>'
-      + '</div></div></div>';
+  function setCaseForDay(dayIndex, caseId){
+    state.days[dayIndex].activeCaseId = caseId;
+    markDirty();
+  }
+
+  function renderDisplayAllDays(){
+    var cards = state.days.map(function(day, i){
+      var c = activeCase(day);
+      var today = isTodayIndex(i);
+      var svg = renderClockSVG(day, c, 168, today);
+      var options = day.cases.map(function(cs){
+        return '<option value="'+cs.id+'"'+(cs.id===day.activeCaseId?' selected':'')+'>'+esc(cs.name)+'</option>';
+      }).join('');
+      return '<div class="daycard">'
+        + '<div class="daycard-head">'
+        + '<span class="daycard-label'+(today?' today':'')+'">'+esc(day.label)+(today?' · 오늘':'')+'</span>'
+        + '<select class="caseselect small" data-action="set-case-for-day" data-day-index="'+i+'">'+options+'</select>'
+        + '</div>'
+        + svg
+        + '<div class="legend">'+legendFor(c)+'</div>'
+        + '</div>';
+    }).join('');
+    return '<div class="panel"><div class="daygrid">' + cards + '</div></div>';
   }
 
   function renderEditPanel(day, c){
@@ -501,7 +527,7 @@
       return '<div class="catrow">'
         + '<input type="color" data-action="cat-color" data-cat-id="'+cat.id+'" value="'+cat.color+'">'
         + '<input type="text" data-action="cat-name" data-cat-id="'+cat.id+'" value="'+esc(cat.name)+'">'
-        + '<button class="icon-btn danger" data-action="delete-category" data-cat-id="'+cat.id+'"'+(state.categories.length<=1?' disabled':'')+'>'+(armed?'정말요?':'삭제')+'</button>'
+        + '<button class="icon-btn danger" data-action="delete-category" data-cat-id="'+cat.id+'"'+(state.categories.length<=1?' disabled':'')+'>'+(armed?'삭제 확인':'삭제')+'</button>'
         + '</div>';
     }).join('');
 
@@ -573,7 +599,13 @@
 
   /* ============== actions ============== */
   function resetTransientUI(){ ui.caseDialog = null; ui.caseDeleteArmed = false; ui.catDeleteArmedId = null; }
-  function setMode(m){ ui.mode = m; resetTransientUI(); renderApp(); }
+  function toggleEditMode(){
+    if (!canWrite) return;
+    ui.mode = ui.mode === 'edit' ? 'display' : 'edit';
+    ui.editingBlockId = null;
+    resetTransientUI();
+    renderApp();
+  }
   function setDay(i){ ui.dayIndex = i; ui.editingBlockId = null; resetTransientUI(); renderApp(); }
   function setCase(id){ dayByIndex(ui.dayIndex).activeCaseId = id; ui.editingBlockId = null; resetTransientUI(); markDirty(); }
 
@@ -585,7 +617,19 @@
     var day = dayByIndex(ui.dayIndex);
     var input = document.getElementById('case-dialog-input');
     var name = (input.value || '').trim().slice(0,40);
-    if (!name){ ui.caseDialog = null; renderApp(); return; }
+    var errEl = document.getElementById('case-dialog-err');
+    if (!name){
+      if (errEl) errEl.innerHTML = '<span class="formerr">이름을 입력해주세요</span>';
+      return;
+    }
+    var isDup = day.cases.some(function(cs){
+      if (ui.caseDialog.mode === 'rename' && cs.id === day.activeCaseId) return false;
+      return cs.name.trim().toLowerCase() === name.toLowerCase();
+    });
+    if (isDup){
+      if (errEl) errEl.innerHTML = '<span class="formerr">이미 같은 이름의 케이스가 있어요. 다른 이름을 입력해주세요.</span>';
+      return;
+    }
     if (ui.caseDialog.mode === 'rename'){
       activeCase(day).name = name;
     } else {
@@ -768,8 +812,7 @@
       var el = ev.target.closest('[data-action]');
       if (!el) return;
       var action = el.dataset.action;
-      if (action === 'set-mode') setMode(el.dataset.mode);
-      else if (action === 'set-day') setDay(parseInt(el.dataset.dayIndex,10));
+      if (action === 'set-day') setDay(parseInt(el.dataset.dayIndex,10));
       else if (action === 'add-case') addCase();
       else if (action === 'rename-case') renameCase();
       else if (action === 'duplicate-case') duplicateCase();
@@ -790,8 +833,10 @@
     document.addEventListener('change', function(ev){
       var t = ev.target;
       if (t.matches && t.matches('[data-action="set-case"]')) setCase(t.value);
+      else if (t.matches && t.matches('[data-action="set-case-for-day"]')) setCaseForDay(parseInt(t.dataset.dayIndex,10), t.value);
       else if (t.matches && t.matches('[data-action="cat-color"]')) setCatColor(t.dataset.catId, t.value);
       else if (t.id === 'import-file' && t.files && t.files[0]) handleImportFile(t.files[0]);
+      else if (t.id === 'edit-toggle') toggleEditMode();
     });
     document.addEventListener('input', function(ev){
       var t = ev.target;
@@ -808,7 +853,7 @@
   }
 
   setInterval(function(){
-    if (ui.mode === 'display' && isTodayIndex(ui.dayIndex)) renderApp();
+    if (ui.mode === 'display') renderApp();
   }, 30000);
 
   /* ============== boot ============== */
