@@ -33,6 +33,7 @@
   }
   *{ box-sizing:border-box; }
   html,body{ height:100%; margin:0; }
+  html{ scrollbar-gutter:stable; }  /* page width (and the top controls) don't shift when a scrollbar appears */
   body{ background: radial-gradient(1100px 700px at 15% -8%, var(--bg-grad), var(--bg) 60%); color:var(--text); }
   #app{
     font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -49,6 +50,12 @@
   .topbar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
   .brand{ display:flex; flex-direction:column; gap:2px; }
   .brand h1{ font-size:2.025rem; font-weight:800; color:var(--text); }
+  .controls{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
+  .ctl-actions, .ctl-switches{ display:flex; align-items:center; gap:10px; }
+  .ctl-switches .switch-label{ min-width:4.2em; }
+  .switchwrap.is-placeholder{ visibility:hidden; pointer-events:none; }
+  /* phones: buttons on one row, switches on the next, whatever the mode — so the mode switch never jumps */
+  @media (max-width:520px){ .ctl-actions, .ctl-switches{ flex:1 0 100%; } }
   .readonly-badge{ font-size:.72rem; font-weight:600; color:var(--text-mute); border:1px solid var(--border); border-radius:999px; padding:4px 10px; white-space:nowrap; cursor:pointer; }
   .readonly-badge:hover{ border-color:var(--accent); color:var(--text); }
   .lock-btn{ appearance:none; border:1px solid var(--border); background:var(--surface-2); color:var(--text-mute); font:inherit; font-size:.72rem; font-weight:600; padding:5px 10px; border-radius:999px; cursor:pointer; }
@@ -64,10 +71,11 @@
   .switch-label{ font-size:.82rem; font-weight:600; color:var(--text-dim); }
 
   /* ---- day tabs ---- */
-  .daytabs{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
-  .daytab{ appearance:none; flex:0 0 auto; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font:inherit; font-weight:600; font-size:.85rem; padding:9px 14px; border-radius:12px; cursor:pointer; }
+  /* the 7 tabs share the row width equally, so they never scroll sideways */
+  .daytabs{ display:flex; gap:6px; }
+  .daytab{ appearance:none; flex:1 1 0; min-width:0; max-width:88px; position:relative; text-align:center; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font:inherit; font-weight:600; font-size:.85rem; padding:9px 0; border-radius:12px; cursor:pointer; }
   .daytab.active{ background:var(--surface-3); color:var(--text); border-color:var(--accent); }
-  .daytab.today::after{ content:"·오늘"; font-weight:500; color:var(--accent); margin-left:3px; font-size:.7rem; }
+  .daytab.today::after{ content:""; position:absolute; left:50%; bottom:4px; width:5px; height:5px; border-radius:50%; background:var(--accent); transform:translateX(-50%); }
 
   /* ---- case bar ---- */
   .casebar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -391,19 +399,24 @@
 
     html += '<div class="topbar">'
       + '<div class="brand"><h1>Weekly Routine</h1></div>'
-      + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+      + '<div class="controls">'
+      + '<div class="ctl-actions">'
       + '<button class="lock-btn refresh-btn" data-action="refresh"'+(refreshing?' disabled':'')+' title="다른 기기에서 저장한 최신 내용을 불러옵니다">'
       +   (refreshing ? '불러오는 중…' : (ui.refreshArmed ? '↻ 변경 버리고 새로고침?' : '↻ 새로고침')) + '</button>'
       + (canWrite
           ? '<button class="lock-btn" data-action="lock">🔓 편집 잠금</button>'
           : '<button class="readonly-badge" data-action="open-token-dialog">읽기 전용 · 편집하려면 탭</button>')
-      + (ui.mode === 'display'
-          ? '<label class="switchwrap"><input type="checkbox" id="scope-toggle"'+(ui.displayScope==='weekly'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.displayScope==='weekly'?'주간':'일간')+'</span></label>'
-          : '')
+      + '</div>'
+      // mode switch always comes first so it stays put when the daily/weekly switch appears or disappears
+      + '<div class="ctl-switches">'
       + (canWrite
           ? '<label class="switchwrap"><input type="checkbox" id="edit-toggle"'+(ui.mode==='edit'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.mode==='edit'?'편집 모드':'시현 모드')+'</span></label>'
           : '')
-      + '</div></div>';
+      // in edit mode the daily/weekly switch keeps its space (hidden) so nothing shifts on wide screens either
+      + '<label class="switchwrap'+(ui.mode==='display'?'':' is-placeholder')+'"'+(ui.mode==='display'?'':' aria-hidden="true"')+'>'
+      +   '<input type="checkbox" id="scope-toggle"'+(ui.displayScope==='weekly'?' checked':'')+(ui.mode==='display'?'':' tabindex="-1" disabled')+'>'
+      +   '<span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.displayScope==='weekly'?'주간':'일간')+'</span></label>'
+      + '</div></div></div>';
 
     if (ui.tokenDialogOpen){
       html += '<div class="panel">'
