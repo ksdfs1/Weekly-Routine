@@ -113,6 +113,10 @@
   .clockmeta h3{ font-size:1.05rem; color:var(--text); }
   .clockmeta .sub{ font-size:.8rem; color:var(--text-mute); margin-top:-6px;}
   .legend{ display:flex; flex-direction:column; gap:7px; }
+  .legend-daily{ column-gap:16px; }
+  @media (min-width:521px){
+    .legend-daily{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); row-gap:6px; }
+  }
   .legenditem{ display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--text-dim); }
   .legenditem .dur{ margin-left:auto; color:var(--text-mute); font-size:.76rem; }
   .now-line{ font-size:.8rem; color:var(--accent); font-weight:700; }
@@ -125,7 +129,7 @@
   .daygrid::-webkit-scrollbar{ height:8px; }
   .daygrid::-webkit-scrollbar-thumb{ background:var(--border); border-radius:999px; }
   .daygrid::-webkit-scrollbar-track{ background:transparent; }
-  .daycard{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; flex:0 0 320px; }
+  .daycard{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; flex:0 0 clamp(200px, 80vw, 320px); min-width:0; }
   .daycard-head{ display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; }
   .daycard-label{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:.85rem; color:var(--text); }
   .daycard-label.today{ color:var(--accent); }
@@ -477,7 +481,7 @@
       + '<div class="clockmeta">'
       + '<h3>'+esc(day.label)+(today?' · 오늘':'')+'</h3>'
       + '<select class="caseselect" data-action="set-case-for-day" data-day-index="'+i+'">'+options+'</select>'
-      + '<div class="legend">'+legendFor(c)+'</div>'
+      + '<div class="legend legend-daily">'+legendFor(c)+'</div>'
       + '</div></div></div>';
   }
 
