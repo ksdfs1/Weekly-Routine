@@ -1,7 +1,3 @@
 node_modules/
 .wrangler/
 _extracted.js
-
-# secrets / personal notes — never commit
-편집 토큰.txt
-수정 요청사항.md
