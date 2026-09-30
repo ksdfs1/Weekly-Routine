@@ -1,0 +1,240 @@
+# Weekly Routine — AI로 똑같이 만들기 위한 가이드
+
+이 문서는 이 저장소의 "Weekly Routine" 웹앱을 다른 컴퓨터·다른 계정에서 **처음부터 그대로 재현**하고 싶을 때 쓰는 스펙 문서입니다. 아래 내용을 통째로 Claude Code 같은 AI 코딩 어시스턴트에게 주고 "이대로 만들어줘"라고 하면 동일한 앱을 새로 구축할 수 있습니다.
+
+> 이 문서에는 개인정보(계정, 토큰, 실제 배포 주소 등)가 들어있지 않습니다. `<...>`로 표시된 부분은 각자 자신의 값으로 채워야 합니다.
+
+---
+
+## 1. 앱이 하는 일
+
+- 월~일 요일별 루틴을 **5분 단위**로 편집한다.
+- 하루마다 여러 개의 **"케이스"**(예: 사무실 출근 / 재택근무 / 휴식)를 만들어두고 상황에 맞게 골라 쓴다.
+- 편집한 루틴을 **24시간짜리 원형 시계**(도넛 차트) 형태로 시현한다.
+- 시현 모드는 **일간(오늘/요일 선택)**과 **주간(월~일 한 줄, 좌우 스크롤)** 두 가지를 스위치로 전환한다.
+- 짙은 남색 다크 테마 + 카테고리별 색상 구분.
+- **크로스 디바이스 동기화**: 어느 기기에서 열어도 같은 데이터가 보이도록 별도 백엔드에 저장한다.
+- **노션 등에 실제로 인라인 임베드**할 수 있어야 한다(iframe으로 삽입했을 때 바로 보이고 편집도 가능).
+- 편집은 아무나 못 하도록 **토큰 기반으로 잠금**되어 있고, 조회(시현)는 누구나 가능하다.
+
+## 2. 기술 스택과 이유
+
+| 구성 요소 | 선택 | 이유 |
+|---|---|---|
+| 프론트엔드 | 프레임워크 없는 순수 HTML/CSS/JS 단일 파일(`index.html`) | 빌드 과정 없이 정적 호스팅에 바로 올릴 수 있음 |
+| 호스팅 | GitHub Pages | 무료, `X-Frame-Options` 헤더를 보내지 않아서 노션 iframe에 실제로 임베드된다 (Claude Artifacts는 `X-Frame-Options: SAMEORIGIN`을 보내서 노션 인라인 임베드가 막힘 — 이게 GitHub Pages로 옮긴 핵심 이유) |
+| 백엔드 | Cloudflare Workers + KV | 서버 관리 없이 JSON 하나를 저장/조회하는 초소형 API. 무료 티어로 충분 |
+| 인증 | Bearer 토큰 1개 | 여러 사용자를 구분할 필요가 없는 개인용 앱이라 최소 구성으로 충분 |
+
+## 3. 아키텍처
+
+```
+브라우저(노션 iframe 또는 직접 접속)
+   │
+   ▼
+GitHub Pages (index.html, 정적 파일 1개)
+   │  fetch()
+   ▼
+Cloudflare Worker  (GET/POST /state)
+   │
+   ▼
+Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
+```
+
+- `GET /state` : 인증 없이 누구나 최신 상태 JSON을 읽을 수 있음.
+- `POST /state` : `Authorization: Bearer <WRITE_TOKEN>` 헤더가 맞아야 저장됨.
+- 프론트엔드는 로드 시 원격 상태를 가져오고, `localStorage`에도 캐시해서 오프라인이거나 네트워크가 느려도 즉시 화면을 그린다.
+- 편집 토큰은 서버에는 저장돼 있지만(Worker의 secret), 클라이언트에서는 **입력한 사람의 `localStorage`에만** 저장된다. 소스코드/저장소 어디에도 토큰 값 자체는 들어가지 않는다.
+
+## 4. 데이터 모델
+
+앱 전체 상태는 아래와 같은 JSON 하나로 표현된다 (Worker의 KV에 이 형태 그대로 저장됨).
+
+```jsonc
+{
+  "categories": [
+    { "id": "sleep", "name": "수면", "color": "#3987e5" }
+    // ... 카테고리는 색상 + 이름을 가진 항목 여러 개
+  ],
+  "days": [
+    {
+      "key": "mon", "label": "월요일", "short": "월",
+      "cases": [
+        {
+          "id": "mon_a", "name": "사무실 출근 (예시)",
+          "blocks": [
+            { "id": "mona_0", "start": 0, "end": 420, "catId": "sleep", "label": "수면" }
+            // start/end 는 자정 0시부터의 "분" 단위(0~1440), 5분 단위로 맞춰 씀
+          ]
+        }
+        // 하루에 케이스 여러 개 가능
+      ],
+      "activeCaseId": "mon_a"   // 이 요일에서 지금 선택된 케이스
+    }
+    // mon~sun 7개
+  ],
+  "isExample": true  // 예시 데이터인지, 사용자가 실제로 저장한 데이터인지 구분용
+}
+```
+
+## 5. 기능 상세 스펙
+
+### 5.1 편집 잠금 / 토큰
+- 처음 접속하면 읽기 전용 상태. 상단에 "읽기 전용 · 편집하려면 탭" 배지가 보인다.
+- 배지를 누르면 토큰 입력 폼이 뜨고, 맞는 `WRITE_TOKEN`을 넣으면 `localStorage`에 저장되고 편집 모드로 전환된다.
+- 편집 권한이 있으면 "🔓 편집 잠금" 버튼으로 언제든 다시 읽기 전용으로 돌아갈 수 있다(토큰을 로컬에서 지움).
+- 저장(`POST /state`) 시 서버가 401을 주면(토큰 불일치) 자동으로 토큰을 지우고 읽기 전용으로 내려간다.
+
+### 5.2 편집 모드
+- 요일 탭(월~일)으로 요일 전환.
+- 케이스 바: 드롭다운으로 케이스 선택 + "케이스 추가 / 이름 변경 / 복제 / 삭제" 버튼. 삭제는 2단계 확인(한번 누르면 "정말 삭제할까요?"로 바뀌고 4초 내 한 번 더 눌러야 삭제).
+- 블록 폼: 시작/종료 시각을 시-분(5분 단위) 드롭다운으로 지정, 카테고리 선택, 메모(선택) 입력 후 "블록 추가". 기존 블록을 누르면 같은 폼이 수정 모드로 바뀐다.
+- 블록 목록: 시간순 정렬, 겹치는 블록은 빨간 표시("겹침")로 경고만 하고 막지는 않는다.
+- 채워지지 않은 시간대는 시계에서 회색("미지정")으로 표시된다.
+- 카테고리 관리: 색상(color input) + 이름 수정, 삭제(사용 중인 블록이 있으면 삭제 불가 토스트 안내).
+- 하단 저장바: JSON 내보내기/가져오기(로컬 파일), "변경사항 저장" 버튼으로 서버에 POST.
+
+### 5.3 시현 모드
+- 상단 스위치로 **일간 / 주간** 전환.
+- **일간**: 요일 탭 + 선택된 요일의 큰 원형 시계 1개 + 그 요일의 케이스 선택 드롭다운 + 범례. 오늘 날짜면 "· 오늘" 표시와 현재 시각 바늘이 함께 그려진다. 마우스 클릭 드래그 또는 터치 스와이프(좌우 50px 이상, 수평 이동이 수직보다 커야 함)로 요일을 앞뒤로 넘길 수 있다.
+- **주간**: 월~일 7개의 시계 카드를 가로 한 줄로, 카드마다 각자의 케이스 드롭다운과 범례가 딸려 있다. 내용이 화면 폭보다 넓으면 좌우로 스크롤(터치는 네이티브 스크롤, 마우스는 아무 곳이나 클릭한 채로 드래그하면 스크롤됨).
+- 원형 시계는 24시간을 도넛 형태로 그리고, 3시간 간격으로 눈금과 숫자 라벨을 표시한다. 범례는 카테고리별 합산 시간(예: "수면 7시간")을 보여준다.
+
+### 5.4 스타일
+- 다크 네이비 배경(`#080d1a` 계열 라디얼 그라디언트), 카드/패널은 한 톤 밝은 남색.
+- 폰트: 제목 `Sora`, 본문 `IBM Plex Sans` (웹폰트, 없으면 시스템 폰트로 대체).
+- 카테고리 색은 서로 구분이 잘 가는 팔레트를 기본값으로 제공(수면/업무/운동/식사/이동/휴식/개인시간/기타 8개).
+- 모바일 폭(520px 이하)에서는 시계·범례가 세로로 쌓이도록 반응형 처리.
+
+### 5.5 임베드
+- GitHub Pages URL을 노션의 "임베드" 블록에 붙여넣으면 iframe으로 바로 표시된다(별도 프록시 불필요).
+
+## 6. 백엔드: Cloudflare Worker
+
+`worker/src/index.js` — 이 내용 그대로 사용하면 된다. 개인정보나 비밀값이 코드에 없다(토큰은 배포 시 secret으로 별도 등록).
+
+```js
+// Weekly Routine — tiny storage API backing the GitHub Pages front-end.
+// GET  /state  -> returns the last saved routine JSON (public read)
+// POST /state  -> overwrites it (requires "Authorization: Bearer <WRITE_TOKEN>")
+
+function corsHeaders(origin) {
+  return {
+    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const origin = request.headers.get("Origin") || "*";
+    const headers = corsHeaders(origin);
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers });
+    }
+
+    if (url.pathname === "/state" && request.method === "GET") {
+      const data = await env.ROUTINE_KV.get("state");
+      return new Response(data || "null", {
+        status: 200,
+        headers: { ...headers, "Content-Type": "application/json" },
+      });
+    }
+
+    if (url.pathname === "/state" && request.method === "POST") {
+      const auth = request.headers.get("Authorization") || "";
+      const token = auth.replace(/^Bearer\s+/i, "");
+      if (!env.WRITE_TOKEN || token !== env.WRITE_TOKEN) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+          headers: { ...headers, "Content-Type": "application/json" },
+        });
+      }
+      const body = await request.text();
+      if (body.length > 300000) {
+        return new Response(JSON.stringify({ error: "too_large" }), {
+          status: 413,
+          headers,
+        });
+      }
+      try {
+        JSON.parse(body);
+      } catch (e) {
+        return new Response(JSON.stringify({ error: "invalid_json" }), {
+          status: 400,
+          headers: { ...headers, "Content-Type": "application/json" },
+        });
+      }
+      await env.ROUTINE_KV.put("state", body);
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { ...headers, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response("Not found", { status: 404, headers });
+  },
+};
+```
+
+`worker/wrangler.toml`:
+
+```toml
+name = "weekly-routine-api"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# `wrangler kv namespace create ROUTINE_KV` 실행 후 나오는 id를 여기에 채운다
+kv_namespaces = [
+  { binding = "ROUTINE_KV", id = "<YOUR_KV_NAMESPACE_ID>" }
+]
+```
+
+## 7. 프론트엔드
+
+`index.html` 전체는 이 저장소의 `index.html`을 그대로 복사해서 쓰면 된다. 재현할 때 반드시 바꿔야 하는 부분은 딱 한 줄이다:
+
+```js
+// index.html 상단 <script> 안
+var API_BASE = "https://weekly-routine-api.<YOUR_SUBDOMAIN>.workers.dev";
+```
+
+`<YOUR_SUBDOMAIN>`을 자신의 Cloudflare Workers 서브도메인(아래 8단계에서 만든 것)으로 바꾼다. 나머지 코드는 수정할 필요 없음.
+
+## 8. 처음부터 구축하는 단계
+
+1. **GitHub 저장소 생성**: 새 public 저장소를 만든다 (`gh repo create <name> --public` 또는 웹에서).
+2. **GitHub Pages 활성화**: 저장소 설정 → Pages → Source를 `main` 브랜치 `/ (root)`로 지정.
+3. **Cloudflare 계정 준비**: 계정이 없으면 가입, 이메일 인증까지 완료.
+4. **wrangler CLI로 로그인**: `npx wrangler login` (브라우저에서 OAuth 인증).
+5. **KV 네임스페이스 생성**: `npx wrangler kv namespace create ROUTINE_KV` → 출력된 id를 `wrangler.toml`의 `kv_namespaces`에 채운다.
+6. **Worker 코드 작성**: 위 6번 섹션의 `worker/src/index.js`, `worker/wrangler.toml`을 그대로 저장.
+7. **쓰기 토큰 등록**: 강한 임의의 토큰을 하나 만들어서(예: `openssl rand -base64 24`) `npx wrangler secret put WRITE_TOKEN`으로 등록한다. **이 토큰 값은 어떤 파일에도 커밋하지 않는다** — 아래 9번 참고.
+8. **Workers 서브도메인 등록(최초 1회)**: 계정에 `*.workers.dev` 서브도메인이 없으면 Cloudflare 대시보드(Workers & Pages → 설정)에서 원하는 이름으로 등록한다.
+9. **Worker 배포**: `npx wrangler deploy` → 배포된 URL(`https://weekly-routine-api.<subdomain>.workers.dev`)을 확인한다.
+10. **프론트엔드에 API 주소 반영**: `index.html`의 `API_BASE`를 9번 URL로 바꾼다.
+11. **GitHub에 push**: `index.html`, `worker/` 폴더를 커밋하고 `main`에 push한다. 몇 초~몇 분 뒤 `https://<github-username>.github.io/<repo-name>/`에서 앱이 열린다.
+12. **편집 잠금 해제**: 배포된 앱을 열고 "읽기 전용 · 편집하려면 탭"을 눌러 7번에서 만든 토큰을 입력한다. 이후 이 브라우저에서는 편집 모드가 계속 유지된다(다른 기기/브라우저에서는 다시 토큰을 입력해야 함).
+13. **노션에 임베드**: 노션 페이지에서 `/embed` → GitHub Pages URL 붙여넣기.
+
+## 9. 보안 — 반드시 지킬 것
+
+- **`WRITE_TOKEN` 값은 절대로 git 저장소에 커밋하지 않는다.** 코드 어디에도 하드코딩하지 말고, 로컬에서만 쓰는 메모 파일(예: `편집-토큰.txt`)에 적어두고 `.gitignore`에 그 파일명을 등록해서 실수로라도 올라가지 않게 한다.
+- Worker의 `GET /state`는 의도적으로 인증 없이 공개되어 있다(조회는 누구나 가능). 루틴 내용을 비공개로 하고 싶다면 GET에도 같은 Bearer 토큰 검사를 추가하면 된다.
+- 저장소를 public으로 만들 경우, 커밋하기 전에 `git status`로 토큰/비밀 파일이 스테이징되지 않았는지 매번 확인하는 습관을 들인다.
+
+## 10. AI에게 그대로 줄 수 있는 요청 예시
+
+```
+아래는 "Weekly Routine"이라는 개인 루틴 관리 웹앱의 전체 스펙이야.
+이 문서에 있는 데이터 모델, 기능 스펙, Worker 코드, index.html 구조를 그대로 재현해서
+GitHub Pages + Cloudflare Worker 조합으로 새로 만들어줘.
+API_BASE, KV 네임스페이스 id, WRITE_TOKEN은 내가 새로 발급받은 값으로 채울 거니까
+플레이스홀더로 남겨두고, 8번 섹션의 단계대로 하나씩 진행해줘.
+
+(이 파일 전체를 붙여넣기)
+```
