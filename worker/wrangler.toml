@@ -1,0 +1,8 @@
+name = "weekly-routine-api"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Filled in after `wrangler kv namespace create ROUTINE_KV`
+kv_namespaces = [
+  { binding = "ROUTINE_KV", id = "REPLACE_WITH_KV_ID" }
+]
