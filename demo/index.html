@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080d1a">
+<link rel="icon" type="image/svg+xml" href="../icons/icon.svg">
 <title>Weekly Routine Clock</title>
 <style id="app-style">
   :root{
@@ -25,11 +27,14 @@
   }
   *{ box-sizing:border-box; }
   html,body{ height:100%; margin:0; }
+  html{ scrollbar-gutter:stable; }  /* page width (and the top controls) don't shift when a scrollbar appears */
   body{ background: radial-gradient(1100px 700px at 15% -8%, var(--bg-grad), var(--bg) 60%); color:var(--text); }
   #app{
     font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
     max-width:1600px; margin:0 auto;
-    padding-inline:16px; padding-block:22px 40px;
+    /* safe-area insets keep content clear of the notch / home bar when installed as an app */
+    padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right));
+    padding-top:calc(22px + env(safe-area-inset-top)); padding-bottom:calc(40px + env(safe-area-inset-bottom));
     display:flex; flex-direction:column; gap:18px;
   }
   h1,h2,h3{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; margin:0; letter-spacing:-0.01em; text-wrap:balance; }
@@ -39,10 +44,18 @@
   .topbar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
   .brand{ display:flex; flex-direction:column; gap:2px; }
   .brand h1{ font-size:2.025rem; font-weight:800; color:var(--text); }
+  .controls{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
+  .ctl-actions, .ctl-switches{ display:flex; align-items:center; gap:10px; }
+  .ctl-switches .switch-label{ min-width:4.2em; }
+  .switchwrap.is-placeholder{ visibility:hidden; pointer-events:none; }
+  /* phones: buttons on one row, switches on the next, whatever the mode — so the mode switch never jumps */
+  @media (max-width:520px){ .ctl-actions, .ctl-switches{ flex:1 0 100%; } }
   .readonly-badge{ font-size:.72rem; font-weight:600; color:var(--text-mute); border:1px solid var(--border); border-radius:999px; padding:4px 10px; white-space:nowrap; cursor:pointer; }
   .readonly-badge:hover{ border-color:var(--accent); color:var(--text); }
   .lock-btn{ appearance:none; border:1px solid var(--border); background:var(--surface-2); color:var(--text-mute); font:inherit; font-size:.72rem; font-weight:600; padding:5px 10px; border-radius:999px; cursor:pointer; }
   .lock-btn:hover{ border-color:var(--danger); color:var(--danger); }
+  .refresh-btn:hover{ border-color:var(--accent); color:var(--text); }
+  .refresh-btn:disabled{ opacity:.6; cursor:default; }
   .switchwrap{ display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
   .switchwrap input{ position:absolute; opacity:0; width:0; height:0; }
   .switch-track{ width:40px; height:22px; border-radius:999px; background:var(--surface-2); border:1px solid var(--border); position:relative; flex:0 0 auto; transition:background .2s ease, border-color .2s ease; }
@@ -52,10 +65,11 @@
   .switch-label{ font-size:.82rem; font-weight:600; color:var(--text-dim); }
 
   /* ---- day tabs ---- */
-  .daytabs{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
-  .daytab{ appearance:none; flex:0 0 auto; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font:inherit; font-weight:600; font-size:.85rem; padding:9px 14px; border-radius:12px; cursor:pointer; }
+  /* the 7 tabs share the row width equally, so they never scroll sideways */
+  .daytabs{ display:flex; gap:6px; }
+  .daytab{ appearance:none; flex:1 1 0; min-width:0; max-width:88px; position:relative; text-align:center; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font:inherit; font-weight:600; font-size:.85rem; padding:9px 0; border-radius:12px; cursor:pointer; }
   .daytab.active{ background:var(--surface-3); color:var(--text); border-color:var(--accent); }
-  .daytab.today::after{ content:"·오늘"; font-weight:500; color:var(--accent); margin-left:3px; font-size:.7rem; }
+  .daytab.today::after{ content:""; position:absolute; left:50%; bottom:4px; width:5px; height:5px; border-radius:50%; background:var(--accent); transform:translateX(-50%); }
 
   /* ---- case bar ---- */
   .casebar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -113,6 +127,10 @@
   .clockmeta h3{ font-size:1.05rem; color:var(--text); }
   .clockmeta .sub{ font-size:.8rem; color:var(--text-mute); margin-top:-6px;}
   .legend{ display:flex; flex-direction:column; gap:7px; }
+  .legend-daily{ column-gap:16px; }
+  @media (min-width:521px){
+    .legend-daily{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); row-gap:6px; }
+  }
   .legenditem{ display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--text-dim); }
   .legenditem .dur{ margin-left:auto; color:var(--text-mute); font-size:.76rem; }
   .now-line{ font-size:.8rem; color:var(--accent); font-weight:700; }
@@ -125,7 +143,7 @@
   .daygrid::-webkit-scrollbar{ height:8px; }
   .daygrid::-webkit-scrollbar-thumb{ background:var(--border); border-radius:999px; }
   .daygrid::-webkit-scrollbar-track{ background:transparent; }
-  .daycard{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; flex:0 0 320px; }
+  .daycard{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; flex:0 0 clamp(180px, 88%, 320px); min-width:0; max-width:100%; }
   .daycard-head{ display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; }
   .daycard-label{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:.85rem; color:var(--text); }
   .daycard-label.today{ color:var(--accent); }
@@ -134,12 +152,13 @@
   .daycard .legenditem{ font-size:.7rem; gap:6px; }
 
   /* ---- data tools / save bar ---- */
-  .savebar{ position:sticky; bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  .savebar{ position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
   .savebar .status{ font-size:.78rem; color:var(--text-mute); }
   .savebar .status.dirty{ color:var(--accent); font-weight:600; }
   .datatools{ display:flex; gap:8px; flex-wrap:wrap; }
 
-  .toast{ position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--surface-3); border:1px solid var(--accent); color:var(--text); font-size:.82rem; font-weight:600; padding:10px 18px; border-radius:999px; box-shadow:0 12px 30px rgba(0,0,0,.4); z-index:50; opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease; max-width:min(90vw,420px); text-align:center; }
+  /* lives outside #app so re-renders (renderApp) don't wipe a message that is showing */
+  .toast{ font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif; position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--surface-3); border:1px solid var(--accent); color:var(--text); font-size:.82rem; font-weight:600; padding:10px 18px; border-radius:999px; box-shadow:0 12px 30px rgba(0,0,0,.4); z-index:50; opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease; max-width:min(90vw,420px); text-align:center; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
 
   @media (max-width:520px){
@@ -158,6 +177,7 @@
   🧪 데모 페이지입니다 — 예시 데이터만 보여주며, 이 화면에서의 변경사항은 어디에도 저장되지 않습니다.
 </div>
 <div id="app"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script>
 (function(){
   "use strict";
@@ -254,6 +274,7 @@
     editingBlockId: null,
     caseDialog: null,        // {mode:'add'|'rename'}
     caseDeleteArmed: false,
+    refreshArmed: false,
     catDeleteArmedId: null,
     tokenDialogOpen: false
   };
@@ -378,17 +399,24 @@
 
     html += '<div class="topbar">'
       + '<div class="brand"><h1>Weekly Routine</h1></div>'
-      + '<div style="display:flex;align-items:center;gap:10px;">'
+      + '<div class="controls">'
+      + '<div class="ctl-actions">'
+      + '<button class="lock-btn refresh-btn" data-action="refresh"'+(refreshing?' disabled':'')+' title="다른 기기에서 저장한 최신 내용을 불러옵니다">'
+      +   (refreshing ? '불러오는 중…' : (ui.refreshArmed ? '↻ 변경 버리고 새로고침?' : '↻ 새로고침')) + '</button>'
       + (canWrite
           ? '<button class="lock-btn" data-action="lock">🔓 편집 잠금</button>'
           : '<button class="readonly-badge" data-action="open-token-dialog">읽기 전용 · 편집하려면 탭</button>')
-      + (ui.mode === 'display'
-          ? '<label class="switchwrap"><input type="checkbox" id="scope-toggle"'+(ui.displayScope==='weekly'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.displayScope==='weekly'?'주간':'일간')+'</span></label>'
-          : '')
+      + '</div>'
+      // mode switch always comes first so it stays put when the daily/weekly switch appears or disappears
+      + '<div class="ctl-switches">'
       + (canWrite
           ? '<label class="switchwrap"><input type="checkbox" id="edit-toggle"'+(ui.mode==='edit'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.mode==='edit'?'편집 모드':'시현 모드')+'</span></label>'
           : '')
-      + '</div></div>';
+      // in edit mode the daily/weekly switch keeps its space (hidden) so nothing shifts on wide screens either
+      + '<label class="switchwrap'+(ui.mode==='display'?'':' is-placeholder')+'"'+(ui.mode==='display'?'':' aria-hidden="true"')+'>'
+      +   '<input type="checkbox" id="scope-toggle"'+(ui.displayScope==='weekly'?' checked':'')+(ui.mode==='display'?'':' tabindex="-1" disabled')+'>'
+      +   '<span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.displayScope==='weekly'?'주간':'일간')+'</span></label>'
+      + '</div></div></div>';
 
     if (ui.tokenDialogOpen){
       html += '<div class="panel">'
@@ -434,7 +462,6 @@
       html += renderEditPanel(day, c);
     }
 
-    html += '<div id="toast" class="toast"></div>';
     app.innerHTML = html;
     bindTimeSelectDependencies();
     if (ui.caseDialog){
@@ -483,7 +510,7 @@
       + '<div class="clockmeta">'
       + '<h3>'+esc(day.label)+(today?' · 오늘':'')+'</h3>'
       + '<select class="caseselect" data-action="set-case-for-day" data-day-index="'+i+'">'+options+'</select>'
-      + '<div class="legend">'+legendFor(c)+'</div>'
+      + '<div class="legend legend-daily">'+legendFor(c)+'</div>'
       + '</div></div></div>';
   }
 
@@ -801,22 +828,55 @@
   }
 
   /* ============== remote sync ============== */
+  // resolves true when fresh state was fetched from the server
   async function loadRemote(){
-    if (!API_BASE || API_BASE.indexOf('__API_BASE__') !== -1){ loadingRemote = false; return; }
+    if (!API_BASE || API_BASE.indexOf('__API_BASE__') !== -1){ loadingRemote = false; return false; }
+    var ok = false;
     try{
       var res = await fetch(API_BASE + '/state', {cache:'no-store'});
       if (res.ok){
         var data = await res.json();
         if (data && data.days){ state = data; cacheLocally(); }
+        ok = true;
       }
     }catch(e){ /* offline: keep whatever we already have (cache or defaults) */ }
     loadingRemote = false;
+    return ok;
   }
+
+  /* manual refresh button: re-fetch the latest saved state (e.g. after editing on another device).
+     With unsaved edits it asks for a second tap first, since those edits would be discarded. */
+  var refreshing = false;
+  var refreshArmTimer = null;
+  async function refreshNow(){
+    if (refreshing || saving) return;
+    if (!API_BASE || API_BASE.indexOf('__API_BASE__') !== -1){
+      toast('데모 페이지라 서버에 저장하거나 불러오지 않아요.');
+      return;
+    }
+    if (dirty && !ui.refreshArmed){
+      ui.refreshArmed = true;
+      renderApp();
+      toast('저장하지 않은 변경사항이 있어요. 한 번 더 누르면 버리고 새로 불러와요.');
+      clearTimeout(refreshArmTimer);
+      refreshArmTimer = setTimeout(function(){ ui.refreshArmed = false; renderApp(); }, 4000);
+      return;
+    }
+    clearTimeout(refreshArmTimer);
+    ui.refreshArmed = false;
+    refreshing = true; renderApp();
+    var ok = await loadRemote();
+    refreshing = false;
+    if (ok){ dirty = false; ui.editingBlockId = null; resetTransientUI(); }
+    renderApp();
+    toast(ok ? '최신 내용을 불러왔어요.' : '불러오지 못했어요. 인터넷 연결을 확인해주세요.');
+  }
+
 
   async function saveState(){
     if (saving) return;
     if (!API_BASE || API_BASE.indexOf('__API_BASE__') !== -1){
-      toast('아직 서버 주소가 설정되지 않았어요.');
+      toast('데모 페이지라 서버에 저장하거나 불러오지 않아요.');
       return;
     }
     saving = true; renderApp();
@@ -871,6 +931,7 @@
       else if (action === 'open-token-dialog') openTokenDialog();
       else if (action === 'cancel-token-dialog') cancelTokenDialog();
       else if (action === 'lock') lockEditing();
+      else if (action === 'refresh') refreshNow();
     });
     document.addEventListener('change', function(ev){
       var t = ev.target;

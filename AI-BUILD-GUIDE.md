@@ -112,7 +112,14 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
 ### 5.5 임베드
 - GitHub Pages URL을 노션의 "임베드" 블록에 붙여넣으면 iframe으로 바로 표시된다(별도 프록시 불필요).
 
-### 5.6 휴대폰 앱(PWA)
+### 5.6 데모 페이지 (`demo/index.html`, 선택)
+- 본 앱 `index.html`을 그대로 복사한 뒤 다음만 바꾼 별도 페이지다. `index.html`을 고치면 같은 방식으로 다시 만들어 맞춘다.
+  - `<body>` 바로 아래에 "🧪 데모 페이지입니다" 안내 배너를 넣는다.
+  - `API_BASE = ""`로 둬서 서버에 접근하지 않게 하고, `TOKEN_KEY`/`LS_CACHE_KEY`에 `DEMO`를 붙여 본 앱의 로컬 데이터와 섞이지 않게 한다.
+  - 저장/새로고침의 "서버 주소 미설정" 안내를 "데모 페이지라 서버에 저장하거나 불러오지 않아요."로 바꾼다.
+  - PWA 태그(manifest, apple-* 메타)와 서비스워커 등록을 빼고, 파비콘만 `../icons/icon.svg`로 둔다.
+
+### 5.7 휴대폰 앱(PWA)
 - 빌드 과정 없이 정적 파일만 추가한다: `manifest.webmanifest`, `sw.js`, `icons/`(`icon.svg` 원본 + `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`(180px)). GitHub Pages가 `/<repo>/` 하위 경로에서 서비스되므로 manifest의 `start_url`/`scope`/아이콘 경로는 모두 **상대 경로**(`./`)로 쓴다.
 - manifest: `display: standalone`, `orientation: portrait`, `background_color`/`theme_color` `#080d1a`. 아이콘은 다크 네이비 배경 위에 카테고리 색 도넛 시계 모티프이며, 내용이 maskable 안전 영역(중앙 80%) 안에 들어가도록 그린다.
 - `index.html` `<head>`: `<link rel="manifest">`, `theme-color`, `apple-touch-icon`, `apple-mobile-web-app-capable`/`-status-bar-style: black-translucent`/`-title` 메타.
@@ -232,7 +239,7 @@ var API_BASE = "https://weekly-routine-api.<YOUR_SUBDOMAIN>.workers.dev";
 11. **GitHub에 push**: `index.html`, `worker/` 폴더를 커밋하고 `main`에 push한다. 몇 초~몇 분 뒤 `https://<github-username>.github.io/<repo-name>/`에서 앱이 열린다.
 12. **편집 잠금 해제**: 배포된 앱을 열고 "읽기 전용 · 편집하려면 탭"을 눌러 7번에서 만든 토큰을 입력한다. 이후 이 브라우저에서는 편집 모드가 계속 유지된다(다른 기기/브라우저에서는 다시 토큰을 입력해야 함).
 13. **노션에 임베드**: 노션 페이지에서 `/embed` → GitHub Pages URL 붙여넣기.
-14. **휴대폰에 앱으로 설치**: 휴대폰 브라우저로 GitHub Pages URL 접속 → Android Chrome은 ⋮ 메뉴 "앱 설치", iPhone Safari는 공유 → "홈 화면에 추가". (5.6의 PWA 파일들이 함께 push되어 있어야 함)
+14. **휴대폰에 앱으로 설치**: 휴대폰 브라우저로 GitHub Pages URL 접속 → Android Chrome은 ⋮ 메뉴 "앱 설치", iPhone Safari는 공유 → "홈 화면에 추가". (5.7의 PWA 파일들이 함께 push되어 있어야 함)
 
 ## 9. 보안 — 반드시 지킬 것
 

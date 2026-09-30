@@ -850,6 +850,10 @@
   var refreshArmTimer = null;
   async function refreshNow(){
     if (refreshing || saving) return;
+    if (!API_BASE || API_BASE.indexOf('__API_BASE__') !== -1){
+      toast('아직 서버 주소가 설정되지 않았어요.');
+      return;
+    }
     if (dirty && !ui.refreshArmed){
       ui.refreshArmed = true;
       renderApp();
