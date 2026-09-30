@@ -184,6 +184,22 @@
   @media (prefers-reduced-motion:reduce){
     .toast{ transition:none; }
   }
+
+  /* ---- ?view=widget: compact week strip for the PC desktop widget (desktop-widget/) ---- */
+  html.widget{ scrollbar-gutter:auto; overflow:hidden; }
+  html.widget body{ background:var(--bg); overflow:hidden; }
+  html.widget #app{ max-width:none; height:100%; padding:10px 12px; gap:8px; }
+  html.widget .nowbar{ padding:6px 12px; border-radius:12px; flex:0 0 auto; }
+  html.widget .nowbar-title{ font-size:.9rem; }
+  html.widget .nowbar-sub{ font-size:.72rem; line-height:1.35; }
+  .wgrid{ flex:1 1 auto; min-height:0; display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:8px; }
+  .wcard{ min-height:0; background:var(--surface); border:1px solid var(--border-soft); border-radius:12px; padding:6px 4px; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .wcard.today{ border-color:var(--accent); background:var(--surface-2); }
+  .wcard-label{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:.78rem; color:var(--text); }
+  .wcard.today .wcard-label{ color:var(--accent); }
+  .wcard-clock{ flex:1 1 auto; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; }
+  .wcard-clock svg{ width:auto !important; height:100% !important; max-width:100%; max-height:100%; }
+  .wcard-case{ font-size:.66rem; color:var(--text-mute); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -198,6 +214,9 @@
   var API_BASE = "https://weekly-routine-api.ksdfs1.workers.dev";
   var TOKEN_KEY = 'weekly-routine-write-token';
   var LS_CACHE_KEY = 'weekly-routine-cache-v1';
+  // ?view=widget renders only the "지금" bar + the week strip, for the PC desktop widget (desktop-widget/)
+  var WIDGET_VIEW = /[?&]view=widget(&|$)/.test(location.search);
+  if (WIDGET_VIEW) document.documentElement.classList.add('widget');
 
   /* ============== constants ============== */
   var DAY_DEFS = [
@@ -455,7 +474,21 @@
       + '<div class="nowbar-sub">'+sub+'</div></div></div>';
   }
 
+  function renderWidget(){
+    var cards = state.days.map(function(day, i){
+      var c = activeCase(day);
+      var today = isTodayIndex(i);
+      return '<div class="wcard'+(today?' today':'')+'">'
+        + '<span class="wcard-label">'+esc(day.short)+(today?' · 오늘':'')+'</span>'
+        + '<div class="wcard-clock">'+renderClockSVG(day, c, 200, today)+'</div>'
+        + '<span class="wcard-case" title="'+esc(c.name)+'">'+esc(c.name)+'</span>'
+        + '</div>';
+    }).join('');
+    app.innerHTML = nowStatusHtml() + '<div class="wgrid">' + cards + '</div>';
+  }
+
   function renderApp(){
+    if (WIDGET_VIEW){ renderWidget(); return; }
     var day = dayByIndex(ui.dayIndex);
     var c = activeCase(day);
     var html = '';
@@ -1077,6 +1110,8 @@
   /* ============== boot ============== */
   renderApp();
   loadRemote().then(renderApp);
+  // the desktop widget stays open for days, so it pulls edits made on other devices by itself
+  if (WIDGET_VIEW) setInterval(function(){ loadRemote().then(renderApp); }, 10*60*1000);
 
   /* offline support + home-screen install (see sw.js); harmless if unavailable, e.g. inside an embed */
   if ('serviceWorker' in navigator){
