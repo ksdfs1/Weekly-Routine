@@ -116,6 +116,8 @@
   .legenditem{ display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--text-dim); }
   .legenditem .dur{ margin-left:auto; color:var(--text-mute); font-size:.76rem; }
   .now-line{ font-size:.8rem; color:var(--accent); font-weight:700; }
+  .daily-swipe{ cursor:grab; touch-action:pan-y; }
+  .daily-swipe:active{ cursor:grabbing; }
 
   /* ---- weekly display grid ---- */
   .daygrid{ display:flex; gap:22px; overflow-x:auto; overflow-y:hidden; padding-block:2px 12px; cursor:grab; scrollbar-width:thin; scrollbar-color:var(--border) transparent; -webkit-overflow-scrolling:touch; }
@@ -469,7 +471,7 @@
     var dayTabsHtml = '<div class="daytabs">' + state.days.map(function(d,idx){
       return '<button class="daytab'+(idx===i?' active':'')+(isTodayIndex(idx)?' today':'')+'" data-action="set-day" data-day-index="'+idx+'">'+esc(d.short)+'</button>';
     }).join('') + '</div>';
-    return dayTabsHtml + '<div class="panel">'
+    return dayTabsHtml + '<div class="panel daily-swipe" id="daily-swipe">'
       + '<div class="clocksection">'
       + '<div class="clockwrap">'+svg+'</div>'
       + '<div class="clockmeta">'
@@ -916,6 +918,26 @@
   }
   document.addEventListener('mouseup', endDragScroll);
   document.addEventListener('mouseleave', endDragScroll);
+
+  /* swipe left/right to move a day in the daily display view (mouse drag or touch swipe) */
+  var swipeState = null;
+  document.addEventListener('pointerdown', function(ev){
+    var zone = ev.target.closest('#daily-swipe');
+    if (!zone) return;
+    if (ev.target.closest('select,button,input,a')) return;
+    swipeState = { startX: ev.clientX, startY: ev.clientY };
+  });
+  document.addEventListener('pointerup', function(ev){
+    if (!swipeState) return;
+    var dx = ev.clientX - swipeState.startX;
+    var dy = ev.clientY - swipeState.startY;
+    swipeState = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5){
+      var dir = dx < 0 ? 1 : -1; // swipe left -> next day, swipe right -> previous day
+      setDay((ui.dayIndex + dir + 7) % 7);
+    }
+  });
+  document.addEventListener('pointercancel', function(){ swipeState = null; });
 
   /* ============== boot ============== */
   renderApp();
