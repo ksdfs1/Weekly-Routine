@@ -112,12 +112,25 @@ object RoutineRepository {
         }
     }
 
-    /** writes a routine JSON (fetched, or handed over by the app's web page) as the cache */
-    fun store(ctx: Context, body: String) {
+    /**
+     * writes a routine JSON (fetched, or handed over by the app's web page) as the cache.
+     * Returns false when it's the same as what's cached — then the file (and the parsed copy in
+     * [memo]) is left alone, so nothing downstream needs to redraw.
+     */
+    fun store(ctx: Context, body: String): Boolean {
+        Prefs.of(ctx).edit().putLong(Prefs.LAST_SYNC, System.currentTimeMillis()).apply()
+        val file = File(ctx.filesDir, CACHE_FILE)
+        if (file.exists() && file.length() == body.toByteArray(Charsets.UTF_8).size.toLong() && file.readText() == body) return false
         val tmp = File(ctx.filesDir, "$CACHE_FILE.tmp")
         tmp.writeText(body)
-        tmp.renameTo(File(ctx.filesDir, CACHE_FILE))
-        Prefs.of(ctx).edit().putLong(Prefs.LAST_SYNC, System.currentTimeMillis()).apply()
+        tmp.renameTo(file)
+        return true
+    }
+
+    /** changes whenever the routine the widget shows could have changed (new data or a case picked here) */
+    fun version(ctx: Context): String {
+        val f = File(ctx.filesDir, CACHE_FILE)
+        return f.lastModified().toString() + "|" + (Prefs.of(ctx).getString(Prefs.CASE_OVERRIDES, "") ?: "")
     }
 
     private fun parseOverrides(s: String): Map<Int, String> = try {
@@ -141,6 +154,7 @@ object Prefs {
     const val VIEW_DAY = "view_day"
     const val VIEW_DAY_AT = "view_day_at"
     const val LIST_SCROLL_KEY = "list_scroll_key"
+    const val LIST_DATA_KEY = "list_data_key"
     const val SEL_DAY = "sel_day"
     const val SEL_START = "sel_start"
     const val SEL_AT = "sel_at"

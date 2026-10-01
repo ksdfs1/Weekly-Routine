@@ -200,8 +200,7 @@ class MainActivity : Activity() {
                 val json = args.optString("json")
                 if (Routine.parse(json) != null) {
                     Thread {
-                        RoutineRepository.store(this, json)
-                        SyncWorker.afterSync(this)
+                        if (RoutineRepository.store(this, json)) SyncWorker.afterSync(this)
                     }.start()
                     true
                 } else false

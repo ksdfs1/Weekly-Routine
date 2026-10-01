@@ -1435,7 +1435,10 @@
     });
   }
 
-  setInterval(function(){
+  // everything time-driven (clock hand, "지금", remaining time, the widget's HH:mm) moves in whole
+  // minutes, so redraw right at each minute boundary — and not while the page can't be seen
+  function minuteTick(){
+    if (document.hidden) return;
     // the widget goes back to today 2 minutes after swiping away (and after midnight)
     if (WIDGET_VIEW && !isTodayIndex(ui.dayIndex) && Date.now() - ui.dayChangedAt > 2*60*1000){
       ui.dayIndex = (new Date().getDay() + 6) % 7;
@@ -1445,7 +1448,17 @@
     // edit mode: a full re-render would wipe the form being typed in, so only swap the "지금" bar
     var bar = document.getElementById('now-status');
     if (bar) bar.outerHTML = nowStatusHtml();
-  }, 30000);
+  }
+  var minuteTimer = null;
+  function scheduleMinuteTick(){
+    clearTimeout(minuteTimer);
+    minuteTimer = setTimeout(function(){ minuteTick(); scheduleMinuteTick(); }, 60000 - Date.now() % 60000 + 50);
+  }
+  scheduleMinuteTick();
+  // back in view (tab switched back, app reopened, PC unlocked): catch up at once
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden){ minuteTick(); scheduleMinuteTick(); }
+  });
 
   /* drag-to-scroll the weekly day strip with the mouse (touch scrolls natively) */
   var dragScroll = null;
@@ -1520,11 +1533,6 @@
   // the desktop widget stays open for days, so it pulls edits made on other devices by itself
   if (WIDGET_VIEW){
     setInterval(function(){ loadRemote().then(renderApp); }, 10*60*1000);
-    // the clock above the donut ticks on its own, between the 30s redraws
-    setInterval(function(){
-      var t = document.getElementById('wnow-time');
-      if (t) t.textContent = nowHHMM();
-    }, 5000);
   }
 
   /* offline support + home-screen install (see sw.js); harmless if unavailable, e.g. inside an embed */

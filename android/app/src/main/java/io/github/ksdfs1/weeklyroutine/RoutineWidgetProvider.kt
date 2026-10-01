@@ -89,9 +89,22 @@ class RoutineWidgetProvider : AppWidgetProvider() {
             val ids = mgr.getAppWidgetIds(ComponentName(ctx, RoutineWidgetProvider::class.java))
             if (ids.isEmpty()) return
             for (id in ids) mgr.updateAppWidget(id, build(ctx))
-            @Suppress("DEPRECATION")
-            mgr.notifyAppWidgetViewDataChanged(ids, R.id.list)
+            val prefs = Prefs.of(ctx)
+            val key = listKey(ctx)
+            if (prefs.getString(Prefs.LIST_DATA_KEY, null) != key) {
+                @Suppress("DEPRECATION")
+                mgr.notifyAppWidgetViewDataChanged(ids, R.id.list)
+                prefs.edit().putString(Prefs.LIST_DATA_KEY, key).apply()
+            }
             scheduleTick(ctx)
+        }
+
+        /** everything the list rows depend on: data, the day shown, today's current block, the tapped row */
+        private fun listKey(ctx: Context): String {
+            val shown = ViewDay.get(ctx)
+            val now = Calendar.getInstance()
+            val cur = if (shown == Routine.dayIndex(now)) RoutineRepository.load(ctx)?.nowStatus(now)?.cur?.start else null
+            return listOf(RoutineRepository.version(ctx), shown, now.get(Calendar.DAY_OF_YEAR), cur, Highlight.get(ctx, shown)).joinToString("|")
         }
 
         private fun build(ctx: Context): RemoteViews {

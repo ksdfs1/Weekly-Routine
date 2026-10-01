@@ -3,7 +3,7 @@
 // icons/manifest are cache-first. Requests to other origins (the Cloudflare
 // Worker API) are left alone — routine data is cached in localStorage by index.html.
 
-var CACHE_VERSION = 'weekly-routine-v1';
+var CACHE_VERSION = 'weekly-routine-v2';
 var APP_SHELL = [
   './',
   'index.html',
@@ -37,15 +37,17 @@ self.addEventListener('fetch', function(event){
   if (url.origin !== self.location.origin) return;
 
   if (req.mode === 'navigate' || url.pathname.endsWith('.html')){
+    // one cached copy per page, whatever the query (?view=widget, ?app=1 … are the same file)
+    var key = url.origin + url.pathname;
     event.respondWith(
       fetch(req).then(function(res){
         if (res.ok){
           var copy = res.clone();
-          caches.open(CACHE_VERSION).then(function(cache){ cache.put(req, copy); });
+          caches.open(CACHE_VERSION).then(function(cache){ cache.put(key, copy); });
         }
         return res;
       }).catch(function(){
-        return caches.match(req).then(function(hit){
+        return caches.match(key).then(function(hit){
           if (hit) return hit;
           // the demo page is a separate app; don't fall back to the real one for it
           if (url.pathname.indexOf('/demo/') !== -1) return Response.error();
