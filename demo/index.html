@@ -166,9 +166,11 @@
   .daycard .legenditem{ font-size:.7rem; gap:6px; }
 
   /* ---- data tools / save bar ---- */
-  .savebar{ position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
-  .savebar .status{ font-size:.78rem; color:var(--text-mute); }
+  /* the save bar follows the scroll (status + save); the JSON backup tools sit at the very end */
+  .savebar{ position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:8px 8px 8px 14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  .savebar .status{ flex:1 1 auto; min-width:0; font-size:.78rem; color:var(--text-mute); }
   .savebar .status.dirty{ color:var(--accent); font-weight:600; }
+  .savebar .btn{ flex:0 0 auto; white-space:nowrap; }
   .datatools{ display:flex; gap:8px; flex-wrap:wrap; }
 
   /* lives outside #app so re-renders (renderApp) don't wipe a message that is showing */
@@ -760,11 +762,14 @@
       + '</div>'
       + '<div class="savebar">'
       + '<span class="status'+(dirty?' dirty':'')+'">'+(saving?'저장하는 중…':(dirty?'저장하지 않은 변경사항이 있어요':(loadingRemote?'불러오는 중…':'저장됨 · 모든 기기에서 동일하게 보여요')))+'</span>'
+      + '<button class="btn primary" data-action="save" '+(saving?'disabled':'')+'>변경사항 저장</button>'
+      + '</div>'
+      + '<div class="panel">'
+      + '<div class="panel-title"><h2>백업</h2></div>'
       + '<div class="datatools">'
       + '<button class="icon-btn" data-action="export-json">JSON 내보내기</button>'
       + '<button class="icon-btn" data-action="import-json">JSON 가져오기</button>'
       + '<input type="file" id="import-file" accept="application/json" hidden>'
-      + '<button class="btn primary" data-action="save" '+(saving?'disabled':'')+'>변경사항 저장</button>'
       + '</div></div>';
   }
 

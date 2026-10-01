@@ -66,11 +66,17 @@
   .nset-text{ display:flex; flex-direction:column; gap:2px; min-width:0; }
   .nset-title{ font-size:.88rem; font-weight:600; color:var(--text); }
   .nset-sub{ font-size:.74rem; color:var(--text-mute); line-height:1.45; }
+  /* inside the Android app the WebView already sits between the system bars, so the page's own
+     safe-area padding would only double the gaps at the top and bottom */
+  html.native #app{ padding-top:14px; padding-bottom:12px; }
+  html.native .savebar{ bottom:6px; }
+  html.native .toast{ bottom:18px; }
   .nset-ok{ font-size:.74rem; font-weight:700; color:#4cc38a; white-space:nowrap; }
   .nset-actions{ display:flex; flex-wrap:wrap; gap:8px; padding-top:4px; }
   .nset-row .btn{ flex:0 0 auto; white-space:nowrap; padding:8px 14px; }
   .lock-btn{ appearance:none; border:1px solid var(--border); background:var(--surface-2); color:var(--text-mute); font:inherit; font-size:.72rem; font-weight:600; padding:5px 10px; border-radius:999px; cursor:pointer; }
   .lock-btn:hover{ border-color:var(--danger); color:var(--danger); }
+  .lock-btn.active, .lock-btn.active:hover{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
   .refresh-btn:hover{ border-color:var(--accent); color:var(--text); }
   .refresh-btn:disabled{ opacity:.6; cursor:default; }
   .switchwrap{ display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
@@ -183,9 +189,11 @@
   .daycard .legenditem{ font-size:.7rem; gap:6px; }
 
   /* ---- data tools / save bar ---- */
-  .savebar{ position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
-  .savebar .status{ font-size:.78rem; color:var(--text-mute); }
+  /* the save bar follows the scroll (status + save); the JSON backup tools sit at the very end */
+  .savebar{ position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:8px 8px 8px 14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  .savebar .status{ flex:1 1 auto; min-width:0; font-size:.78rem; color:var(--text-mute); }
   .savebar .status.dirty{ color:var(--accent); font-weight:600; }
+  .savebar .btn{ flex:0 0 auto; white-space:nowrap; }
   .datatools{ display:flex; gap:8px; flex-wrap:wrap; }
 
   /* lives outside #app so re-renders (renderApp) don't wipe a message that is showing */
@@ -700,7 +708,7 @@
       + '<div class="brand"><h1>Weekly Routine</h1></div>'
       + '<div class="controls">'
       + '<div class="ctl-actions">'
-      + (NATIVE ? '<button class="lock-btn refresh-btn" data-action="toggle-native-panel" title="알림 · 앱 설정">⚙ 알림</button>' : '')
+      + (NATIVE ? '<button class="lock-btn refresh-btn'+(ui.nativePanelOpen?' active':'')+'" data-action="toggle-native-panel" aria-pressed="'+(ui.nativePanelOpen?'true':'false')+'" title="알림 · 앱 설정">⚙ 알림</button>' : '')
       + '<button class="lock-btn refresh-btn" data-action="refresh"'+(refreshing?' disabled':'')+' title="다른 기기에서 저장한 최신 내용을 불러옵니다">'
       +   (refreshing ? '불러오는 중…' : (ui.refreshArmed ? '↻ 변경 버리고 새로고침?' : '↻ 새로고침')) + '</button>'
       + (canWrite
@@ -708,7 +716,7 @@
           : '<button class="readonly-badge" data-action="open-token-dialog">읽기 전용 · 편집하려면 탭</button>')
       + '</div>'
       // mode switch always comes first so it stays put when the daily/weekly switch appears or disappears
-      + '<div class="ctl-switches">'
+      + '<div class="ctl-switches"'+(NATIVE && ui.nativePanelOpen ? ' style="display:none"' : '')+'>'
       + (canWrite
           ? '<label class="switchwrap"><input type="checkbox" id="edit-toggle"'+(ui.mode==='edit'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.mode==='edit'?'편집 모드':'시현 모드')+'</span></label>'
           : '')
@@ -718,7 +726,10 @@
       +   '<span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.displayScope==='weekly'?'주간':'일간')+'</span></label>'
       + '</div></div></div>';
 
-    if (NATIVE && ui.nativePanelOpen) html += nativePanelHtml();
+    if (NATIVE && ui.nativePanelOpen){
+      app.innerHTML = html + nativePanelHtml();
+      return;
+    }
 
     if (ui.tokenDialogOpen){
       html += '<div class="panel">'
@@ -821,9 +832,13 @@
     nativeInfo = {settings:r[0], perms:r[1], info:r[2]};
     if (ui.nativePanelOpen) renderApp();
   }
+  var nativePanelScrollY = 0;
   function toggleNativePanel(){
     ui.nativePanelOpen = !ui.nativePanelOpen;
+    // opening: start at the top; closing: back to where the page was
+    if (ui.nativePanelOpen) nativePanelScrollY = window.scrollY;
     renderApp();
+    window.scrollTo(0, ui.nativePanelOpen ? 0 : nativePanelScrollY);
     if (ui.nativePanelOpen) refreshNativeInfo();
   }
   async function setNativeSetting(key, value){
@@ -1043,11 +1058,14 @@
       + '</div>'
       + '<div class="savebar">'
       + '<span class="status'+(dirty?' dirty':'')+'">'+(saving?'저장하는 중…':(dirty?'저장하지 않은 변경사항이 있어요':(loadingRemote?'불러오는 중…':'저장됨 · 모든 기기에서 동일하게 보여요')))+'</span>'
+      + '<button class="btn primary" data-action="save" '+(saving?'disabled':'')+'>변경사항 저장</button>'
+      + '</div>'
+      + '<div class="panel">'
+      + '<div class="panel-title"><h2>백업</h2></div>'
       + '<div class="datatools">'
       + '<button class="icon-btn" data-action="export-json">JSON 내보내기</button>'
       + '<button class="icon-btn" data-action="import-json">JSON 가져오기</button>'
       + '<input type="file" id="import-file" accept="application/json" hidden>'
-      + '<button class="btn primary" data-action="save" '+(saving?'disabled':'')+'>변경사항 저장</button>'
       + '</div></div>';
   }
 

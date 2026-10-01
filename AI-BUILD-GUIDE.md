@@ -95,7 +95,7 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
 - 블록 목록: 시간순 정렬, 겹치는 블록은 빨간 표시("겹침")로 경고만 하고 막지는 않는다.
 - 채워지지 않은 시간대는 시계에서 회색("미지정")으로 표시된다.
 - 카테고리 관리: 색상(color input) + 이름 수정, 삭제(사용 중인 블록이 있으면 삭제 불가 토스트 안내).
-- 하단 저장바: JSON 내보내기/가져오기(로컬 파일), "변경사항 저장" 버튼으로 서버에 POST.
+- 하단 저장바(스크롤을 따라옴, 화면 맨 아래에 붙음): 저장 상태 + "변경사항 저장" 버튼(서버에 POST). 그 아래 페이지 맨 끝에 "백업" 패널: JSON 내보내기/가져오기(로컬 파일, 스크롤을 따라오지 않음).
 
 ### 5.3 시현 모드
 - 상단 스위치로 **일간 / 주간** 전환.
@@ -169,7 +169,7 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
   | `getToken` / `setToken{token}` | 편집 토큰 공유(위젯 케이스 저장용) |
   | `saveFile{name,content}` | JSON 내보내기를 `ACTION_CREATE_DOCUMENT`로 저장(WebView는 blob 다운로드 불가) |
 
-- **웹앱 쪽**(`index.html`): `window.WRNative`가 있을 때만 `<html class="native">`와 상단 **⚙ 알림** 버튼이 생긴다. 버튼을 누르면 '알림 · 앱 설정' 패널이 열린다(스위치 4개, 테스트 알림, 시스템 알림 설정, 권한 3종, 위젯 안내, 마지막 동기화). `loadRemote` 성공·`saveState` 성공 때 `onState`를 부른다. 토큰 입력·잠금·401 때 `setToken`을 부른다. 시작할 때 `syncTokenWithNative()`로 어느 한쪽에만 있는 토큰을 다른 쪽에 넣는다. `exportJson`은 `saveFile`을 쓴다. PC 브라우저·PC 위젯에서는 아무것도 바뀌지 않는다.
+- **웹앱 쪽**(`index.html`): `window.WRNative`가 있을 때만 `<html class="native">`와 상단 **⚙ 알림** 버튼이 생긴다. 버튼을 누르면(버튼이 주황색으로 채워짐) 다른 화면 내용은 숨기고 '알림 · 앱 설정' 패널만 보여준다. 다시 누르거나 닫기를 누르면 원래 화면과 스크롤 위치로 돌아간다. 앱 안에서는 WebView가 이미 시스템 바 사이에 있으므로 페이지의 safe-area 여백을 빼서 위아래 이중 여백을 없앤다(스위치 4개, 테스트 알림, 시스템 알림 설정, 권한 3종, 위젯 안내, 마지막 동기화). `loadRemote` 성공·`saveState` 성공 때 `onState`를 부른다. 토큰 입력·잠금·401 때 `setToken`을 부른다. 시작할 때 `syncTokenWithNative()`로 어느 한쪽에만 있는 토큰을 다른 쪽에 넣는다. `exportJson`은 `saveFile`을 쓴다. PC 브라우저·PC 위젯에서는 아무것도 바뀌지 않는다.
 - 위젯이나 알림을 탭하면 `MainActivity`가 열린다.
 - `RoutineLogic.kt`는 `activeCase` / `segmentsWithGaps` / `nowStatus`를 그대로 옮긴 코드다. 웹앱 쪽을 바꾸면 여기도 맞춘다.
 - 데이터: `GET /state`를 받아(또는 웹 페이지가 `onState`로 넘겨줘서) `filesDir/state.json`에 캐시한다. `SyncWorker`가 1시간마다(네트워크 필요) 동기화하고, 위젯 ↻ 버튼으로도 동기화할 수 있다.
