@@ -142,6 +142,7 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
   - 데스크톱 앱 안(`window.chrome.webview`가 있을 때)에서는 `<html class="hosted">`를 달고, 마우스를 올리면 왼쪽 위 "⠿ 이동" 손잡이와 오른쪽 아래 크기 조절 그립이 보인다. 누르면 `postMessage('move'|'resize')`, 우클릭은 `postMessage('menu')`.
 - `desktop-widget/`은 .NET 8 WinForms + WebView2 앱이다. 테두리 없는 창에 위젯 보기를 띄운다.
   - 창은 작업 표시줄과 Alt+Tab에 나오지 않는다(ToolWindow). owner를 `Progman`으로 지정해서 Win+D에도 남게 하고, `WM_WINDOWPOSCHANGING`에서 항상 `HWND_BOTTOM`으로 보낸다.
+  - 앱 열기(트레이 메뉴, 위젯의 "앱 열기 ↗" 링크): 시작 메뉴·바탕화면에서 `Weekly Routine.lnk` 중 인수에 `--app-id=`가 있고 대상(chrome_proxy.exe/msedge_proxy.exe)이 존재하는 바로가기(크롬·엣지로 설치한 PWA)를 찾아 실행하고, 없거나 실행에 실패하면 기본 브라우저로 연다(`AppLauncher`).
   - 트레이 메뉴 항목: 위치·크기 조정(주황 테두리 + 드래그 띠), 새로고침, 앱 열기, 편집 토큰 설정…(페이지의 `localStorage`에 `ExecuteScriptAsync`로 넣음), 자동 실행(HKCU Run), 종료. 위젯을 우클릭해도 같은 메뉴가 뜬다.
   - 페이지의 `move`/`resize` 메시지를 받으면 `ReleaseCapture()` 후 `WM_NCLBUTTONDOWN`(`HTCAPTION` / `HTBOTTOMRIGHT`)을 보내 Windows의 이동·크기 조절을 시작한다. `ResizeEnd` 때마다 위치를 저장한다.
   - 기본 크기는 640×300(예전 기본값 960×250, 1280×340으로 저장돼 있으면 새 기본값으로 바꾼다). 위치와 크기는 `%APPDATA%\WeeklyRoutineWidget\settings.json`에 저장한다.

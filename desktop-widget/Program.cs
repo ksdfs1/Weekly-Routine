@@ -55,7 +55,7 @@ sealed class WidgetContext : ApplicationContext
         menu = new ContextMenuStrip();
         menu.Items.Add(adjustItem);
         menu.Items.Add("새로고침", null, (_, _) => form?.Reload());
-        menu.Items.Add("브라우저에서 앱 열기", null, (_, _) => Browser.Open(Program.AppUrl));
+        menu.Items.Add("앱 열기", null, (_, _) => AppLauncher.Open());
         menu.Items.Add("편집 토큰 설정…", null, (_, _) => form?.EditToken());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(autostartItem);
@@ -142,6 +142,66 @@ static class Browser
     {
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
         catch { /* no default browser: nothing sensible to do */ }
+    }
+}
+
+/// Opens the web app the way it's normally run on this PC: the installed app (PWA) if there is one,
+/// otherwise the default browser.
+static class AppLauncher
+{
+    const string AppName = "Weekly Routine";   // "name" in ../manifest.webmanifest
+
+    public static void Open()
+    {
+        var shortcut = FindInstalledApp();
+        if (shortcut != null)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(shortcut) { UseShellExecute = true });
+                return;
+            }
+            catch { /* broken shortcut: fall back to the browser */ }
+        }
+        Browser.Open(Program.AppUrl);
+    }
+
+    /// true for links to the web app itself (e.g. the widget page's "앱 열기", href="./")
+    public static bool IsAppUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
+        var page = u.GetLeftPart(UriPartial.Path);
+        return page.Equals(Program.AppUrl, StringComparison.OrdinalIgnoreCase) ||
+               page.Equals(new Uri(Program.WidgetUrl).GetLeftPart(UriPartial.Path), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// Installing the site as an app in Chrome or Edge puts a "Weekly Routine" shortcut in the Start
+    /// menu (e.g. "Chrome 앱\Weekly Routine.lnk") that runs chrome_proxy.exe/msedge_proxy.exe --app-id=…
+    static string? FindInstalledApp()
+    {
+        var shellType = Type.GetTypeFromProgID("WScript.Shell");
+        if (shellType == null) return null;
+        dynamic shell = Activator.CreateInstance(shellType)!;
+        var opts = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true };
+        foreach (var root in new[] {
+            Environment.GetFolderPath(Environment.SpecialFolder.StartMenu),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu),
+            Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) })
+        {
+            if (string.IsNullOrEmpty(root) || !Directory.Exists(root)) continue;
+            foreach (var lnk in Directory.EnumerateFiles(root, AppName + ".lnk", opts))
+            {
+                try
+                {
+                    dynamic s = shell.CreateShortcut(lnk);
+                    string target = s.TargetPath, args = s.Arguments;
+                    // an installed web app, and its browser is still there
+                    if (args.Contains("--app-id=") && File.Exists(target)) return lnk;
+                }
+                catch { /* unreadable shortcut: keep looking */ }
+            }
+        }
+        return null;
     }
 }
 

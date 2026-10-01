@@ -98,8 +98,13 @@ sealed class WidgetForm : Form
         core.Settings.AreDefaultContextMenusEnabled = false;
         core.Settings.IsZoomControlEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
-        // anything that tries to leave the widget page opens in the normal browser instead
-        core.NewWindowRequested += (_, a) => { a.Handled = true; Browser.Open(a.Uri); };
+        // anything that tries to leave the widget page opens in the normal browser instead,
+        // except the web app itself ("앱 열기"), which opens as the installed app when there is one
+        core.NewWindowRequested += (_, a) =>
+        {
+            a.Handled = true;
+            if (AppLauncher.IsAppUrl(a.Uri)) AppLauncher.Open(); else Browser.Open(a.Uri);
+        };
         core.NavigationStarting += (_, a) =>
         {
             var widgetOrigin = new Uri(Program.WidgetUrl).GetLeftPart(UriPartial.Path);
