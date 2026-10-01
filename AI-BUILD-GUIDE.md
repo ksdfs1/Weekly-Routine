@@ -149,10 +149,30 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
   - 처음 실행할 때 자동 실행을 켠다(`AutostartSetUp` 플래그). 이후에는 트레이 메뉴 설정을 따르고, 켜져 있으면 실행할 때마다 등록 경로를 현재 exe로 갱신한다.
   - Explorer가 재시작되면 창이 사라지는데, 3초 뒤 새로 연다.
 
-### 5.9 안드로이드 동반 앱 (`android/`)
-- PWA는 안드로이드 홈 화면 위젯을 만들 수 없어서, 위젯과 알림 전용 Kotlin 앱을 둔다(minSdk 26, AppCompat 없음, 의존성은 core-ktx와 work-runtime만). 편집은 웹앱에서 하고, 위젯이나 알림을 탭하면 웹앱 URL을 연다.
+### 5.9 안드로이드 앱 (`android/`)
+- 휴대폰은 이 앱 하나로 쓴다(PWA는 홈 화면 위젯을 만들 수 없음). Kotlin, minSdk 26, AppCompat 없음, 의존성은 core-ktx, work-runtime, webkit.
+- **하이브리드 구조**: 런처 화면 `MainActivity`가 전체 화면 WebView로 웹앱 URL(GitHub Pages의 `index.html`)을 연다. 시현·편집 UI는 웹 코드 그대로다.
+  - JavaScript·DOM storage를 켜고, 배경색을 `#080d1a`로 맞춘다. 시스템 바와 키보드 영역만큼 WebView에 padding을 준다(edge-to-edge).
+  - 같은 사이트(`ksdfs1.github.io/Weekly-Routine`) 밖의 링크는 외부 브라우저로 연다. 뒤로 가기는 `canGoBack()`이면 뒤로 간다.
+  - `<input type=file>`(JSON 가져오기)는 `onShowFileChooser`로 처리한다. 첫 실행에 인터넷이 없어 메인 프레임 로드가 실패하면 '다시 시도' 화면을 보여준다.
+  - 디버그 빌드는 `WebView.setWebContentsDebuggingEnabled(true)`(PC의 chrome://inspect로 점검).
+- **JS 브리지 `WRNative`**: `WebViewCompat.addWebMessageListener`로 `https://ksdfs1.github.io` 출처의 메인 프레임에만 주입한다. 페이지는 `{id, op, args}` JSON을 `postMessage`하고, 앱은 `{id, result}`로 답한다. 앱 쪽에서 생긴 일은 `{event:'permissions'|'resume'}`로 알린다.
+
+  | op | 동작 |
+  |---|---|
+  | `getSettings` / `setSetting{key,value}` | `notify`·`sound`·`vibrate`·`notifyGaps` ↔ SharedPreferences |
+  | `getPermissions` | 알림·정확한 알람·배터리 최적화 제외 여부 |
+  | `requestNotificationPermission` / `openExactAlarmSettings` / `openBatterySettings` / `openNotificationSettings` | 권한 요청·시스템 설정 열기 |
+  | `sendTestNotification` | 테스트 알림(`{ok, reason}`) |
+  | `getInfo` | 마지막 동기화 시각, 앱 버전 |
+  | `onState{json}` | 웹이 불러오거나 저장한 루틴을 캐시에 쓰고 위젯·알람을 즉시 갱신 |
+  | `getToken` / `setToken{token}` | 편집 토큰 공유(위젯 케이스 저장용) |
+  | `saveFile{name,content}` | JSON 내보내기를 `ACTION_CREATE_DOCUMENT`로 저장(WebView는 blob 다운로드 불가) |
+
+- **웹앱 쪽**(`index.html`): `window.WRNative`가 있을 때만 `<html class="native">`와 상단 **⚙ 알림** 버튼이 생긴다. 버튼을 누르면 '알림 · 앱 설정' 패널이 열린다(스위치 4개, 테스트 알림, 시스템 알림 설정, 권한 3종, 위젯 안내, 마지막 동기화). `loadRemote` 성공·`saveState` 성공 때 `onState`를 부른다. 토큰 입력·잠금·401 때 `setToken`을 부른다. 시작할 때 `syncTokenWithNative()`로 어느 한쪽에만 있는 토큰을 다른 쪽에 넣는다. `exportJson`은 `saveFile`을 쓴다. PC 브라우저·PC 위젯에서는 아무것도 바뀌지 않는다.
+- 위젯이나 알림을 탭하면 `MainActivity`가 열린다.
 - `RoutineLogic.kt`는 `activeCase` / `segmentsWithGaps` / `nowStatus`를 그대로 옮긴 코드다. 웹앱 쪽을 바꾸면 여기도 맞춘다.
-- 데이터: `GET /state`를 받아 `filesDir/state.json`에 캐시한다. `SyncWorker`가 1시간마다(네트워크 필요) 동기화하고, 위젯 ↻ 버튼과 설정의 '지금 동기화'로도 동기화할 수 있다.
+- 데이터: `GET /state`를 받아(또는 웹 페이지가 `onState`로 넘겨줘서) `filesDir/state.json`에 캐시한다. `SyncWorker`가 1시간마다(네트워크 필요) 동기화하고, 위젯 ↻ 버튼으로도 동기화할 수 있다.
 - 4x2 위젯 구성 (왼쪽 40% : 오른쪽 60%)
   - 왼쪽: 현재 시각(`TextClock`, HH:mm) 아래에 Canvas로 그린 오늘 도넛 시계. 가운데에 지금 상태 이름과 그 아래 "○시간 ○분 남음".
   - 화면이 켜져 있는 동안 1분마다 다시 그린다(`AlarmManager.RTC` — 깨우지 않는 알람이라 대기 중에는 배터리를 쓰지 않음). 위젯이 모두 지워지면 취소한다.

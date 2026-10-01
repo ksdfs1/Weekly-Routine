@@ -58,6 +58,17 @@
   @media (max-width:520px){ .ctl-actions, .ctl-switches{ flex:1 0 100%; } }
   .readonly-badge{ font-size:.72rem; font-weight:600; color:var(--text-mute); border:1px solid var(--border); border-radius:999px; padding:4px 10px; white-space:nowrap; cursor:pointer; }
   .readonly-badge:hover{ border-color:var(--accent); color:var(--text); }
+  /* Android app only: the notification/app settings panel (see NATIVE) */
+  .nset{ display:flex; flex-direction:column; }
+  .nset-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0; }
+  .nset-row + .nset-row{ border-top:1px solid var(--border-soft); }
+  .nset-row.is-off{ opacity:.45; }
+  .nset-text{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .nset-title{ font-size:.88rem; font-weight:600; color:var(--text); }
+  .nset-sub{ font-size:.74rem; color:var(--text-mute); line-height:1.45; }
+  .nset-ok{ font-size:.74rem; font-weight:700; color:#4cc38a; white-space:nowrap; }
+  .nset-actions{ display:flex; flex-wrap:wrap; gap:8px; padding-top:4px; }
+  .nset-row .btn{ flex:0 0 auto; white-space:nowrap; padding:8px 14px; }
   .lock-btn{ appearance:none; border:1px solid var(--border); background:var(--surface-2); color:var(--text-mute); font:inherit; font-size:.72rem; font-weight:600; padding:5px 10px; border-radius:999px; cursor:pointer; }
   .lock-btn:hover{ border-color:var(--danger); color:var(--danger); }
   .refresh-btn:hover{ border-color:var(--accent); color:var(--text); }
@@ -269,6 +280,27 @@
   if (HOST) document.documentElement.classList.add('hosted');
   // cases picked in the widget without an edit token: kept on this PC only, {dayKey: caseId}
   var CASE_OVERRIDES_KEY = 'weekly-routine-case-overrides';
+  // set when the page runs inside the Android app (android/ MainActivity), which injects this bridge:
+  // notification settings and permissions, the shared edit token, and pushing the routine to the widget
+  var NATIVE = window.WRNative || null;
+  var nativeSeq = 0, nativeWaiting = {};
+  function nativeCall(op, args){
+    return new Promise(function(resolve){
+      if (!NATIVE){ resolve(null); return; }
+      var id = ++nativeSeq;
+      nativeWaiting[id] = resolve;
+      NATIVE.postMessage(JSON.stringify({id:id, op:op, args:args || {}}));
+    });
+  }
+  if (NATIVE){
+    document.documentElement.classList.add('native');
+    NATIVE.onmessage = function(ev){
+      var m; try{ m = JSON.parse(ev.data); }catch(e){ return; }
+      if (m.event){ onNativeEvent(m.event); return; }
+      var done = nativeWaiting[m.id];
+      if (done){ delete nativeWaiting[m.id]; done(m.result); }
+    };
+  }
 
   /* ============== constants ============== */
   var DAY_DEFS = [
@@ -357,8 +389,10 @@
     catDeleteArmedId: null,
     tokenDialogOpen: false,
     clockSel: null,          // highlighted clock slice: {key:'dayKey|caseId', start:minute}
-    dayChangedAt: 0
+    dayChangedAt: 0,
+    nativePanelOpen: false   // Android app: notification/app settings panel
   };
+  var nativeInfo = null;     // {settings, perms, info} for that panel, filled by refreshNativeInfo()
   var dirty = false;
   var saving = false;
   var loadingRemote = true;
@@ -666,6 +700,7 @@
       + '<div class="brand"><h1>Weekly Routine</h1></div>'
       + '<div class="controls">'
       + '<div class="ctl-actions">'
+      + (NATIVE ? '<button class="lock-btn refresh-btn" data-action="toggle-native-panel" title="알림 · 앱 설정">⚙ 알림</button>' : '')
       + '<button class="lock-btn refresh-btn" data-action="refresh"'+(refreshing?' disabled':'')+' title="다른 기기에서 저장한 최신 내용을 불러옵니다">'
       +   (refreshing ? '불러오는 중…' : (ui.refreshArmed ? '↻ 변경 버리고 새로고침?' : '↻ 새로고침')) + '</button>'
       + (canWrite
@@ -682,6 +717,8 @@
       +   '<input type="checkbox" id="scope-toggle"'+(ui.displayScope==='weekly'?' checked':'')+(ui.mode==='display'?'':' tabindex="-1" disabled')+'>'
       +   '<span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.displayScope==='weekly'?'주간':'일간')+'</span></label>'
       + '</div></div></div>';
+
+    if (NATIVE && ui.nativePanelOpen) html += nativePanelHtml();
 
     if (ui.tokenDialogOpen){
       html += '<div class="panel">'
@@ -738,6 +775,81 @@
     if (ui.tokenDialogOpen){
       var tokenInput = document.getElementById('token-input');
       if (tokenInput){ tokenInput.focus(); }
+    }
+  }
+
+  /* ---- Android app: notification / app settings (what the app's old settings screen had) ---- */
+  function nativePanelHtml(){
+    var head = '<div class="panel"><div class="panel-title"><h2>알림 · 앱 설정</h2>'
+      + '<button class="icon-btn" data-action="toggle-native-panel">닫기</button></div>';
+    if (!nativeInfo) return head + '<div class="hint">불러오는 중…</div></div>';
+    var st = nativeInfo.settings || {}, pm = nativeInfo.perms || {}, info = nativeInfo.info || {};
+    var sw = function(key, title, sub, dependent){
+      var off = dependent && !st.notify;
+      return '<label class="nset-row switchwrap'+(off?' is-off':'')+'">'
+        + '<span class="nset-text"><span class="nset-title">'+title+'</span>'+(sub?'<span class="nset-sub">'+sub+'</span>':'')+'</span>'
+        + '<input type="checkbox" data-native-setting="'+key+'"'+(st[key]?' checked':'')+(off?' disabled':'')+'>'
+        + '<span class="switch-track"><span class="switch-thumb"></span></span></label>';
+    };
+    var perm = function(ok, title, sub, action, label){
+      return '<div class="nset-row"><span class="nset-text"><span class="nset-title">'+title+'</span><span class="nset-sub">'+sub+'</span></span>'
+        + (ok ? '<span class="nset-ok">허용됨</span>' : '<button class="btn primary" data-action="'+action+'">'+label+'</button>') + '</div>';
+    };
+    var last = info.lastSync ? new Date(info.lastSync) : null;
+    var lastText = last ? (last.getMonth()+1)+'/'+last.getDate()+' '+pad2(last.getHours())+':'+pad2(last.getMinutes()) : '없음';
+    return head
+      + '<div class="nset">'
+      + sw('notify', '상태 변경 알림', '루틴상 지금 할 일이 바뀌면 알려줘요', false)
+      + sw('sound', '소리', '', true)
+      + sw('vibrate', '진동', '', true)
+      + sw('notifyGaps', '미지정 시간 시작도 알림', '블록이 끝나고 빈 시간이 시작될 때', true)
+      + '</div>'
+      + '<div class="nset-actions"><button class="icon-btn" data-action="native-test">테스트 알림 보내기</button>'
+      + '<button class="icon-btn" data-action="native-open-notify">시스템 알림 설정</button></div>'
+      + '<div class="panel-title" style="margin-top:6px;"><h2>권한</h2></div>'
+      + '<div class="nset">'
+      + perm(pm.notifications, '알림', '꺼져 있으면 알림이 오지 않아요', 'native-perm-notify', '허용')
+      + perm(pm.exactAlarm, '정확한 알람', '없으면 알림이 몇 분 늦을 수 있어요', 'native-perm-exact', '허용')
+      + perm(pm.battery, '배터리 최적화 제외', '목록에서 Weekly Routine을 \'제한 없음\'으로 바꿔주세요', 'native-perm-battery', '설정 열기')
+      + '</div>'
+      + '<div class="hint">홈 화면을 길게 누르고 위젯 → Weekly Routine → \'오늘 루틴\'을 추가하세요. '
+      +   '저장하면 위젯과 알림에 바로 반영돼요. 마지막 동기화 '+lastText+(info.version?' · 앱 '+esc(info.version):'')+'</div>'
+      + '</div>';
+  }
+  async function refreshNativeInfo(){
+    var r = await Promise.all([nativeCall('getSettings'), nativeCall('getPermissions'), nativeCall('getInfo')]);
+    nativeInfo = {settings:r[0], perms:r[1], info:r[2]};
+    if (ui.nativePanelOpen) renderApp();
+  }
+  function toggleNativePanel(){
+    ui.nativePanelOpen = !ui.nativePanelOpen;
+    renderApp();
+    if (ui.nativePanelOpen) refreshNativeInfo();
+  }
+  async function setNativeSetting(key, value){
+    await nativeCall('setSetting', {key:key, value:value});
+    refreshNativeInfo();
+  }
+  async function nativeTestNotification(){
+    var r = await nativeCall('sendTestNotification');
+    if (r && r.ok) toast('테스트 알림을 보냈어요.');
+    else toast(r && r.reason === 'permission' ? '알림 권한을 먼저 허용해주세요.' : '루틴을 아직 불러오지 못했어요.');
+  }
+  function onNativeEvent(name){
+    // a permission was answered, or we came back from system settings
+    if ((name === 'permissions' || name === 'resume') && ui.nativePanelOpen) refreshNativeInfo();
+  }
+  // the app keeps the edit token too (the widget's case picker uses it): whichever side has one shares it
+  async function syncTokenWithNative(){
+    if (!NATIVE) return;
+    var mine = '';
+    try{ mine = localStorage.getItem(TOKEN_KEY) || ''; }catch(e){}
+    var theirs = await nativeCall('getToken') || '';
+    if (mine){ if (mine !== theirs) nativeCall('setToken', {token:mine}); return; }
+    if (theirs){
+      try{ localStorage.setItem(TOKEN_KEY, theirs); }catch(e){}
+      canWrite = true;
+      renderApp();
     }
   }
 
@@ -970,6 +1082,7 @@
     var val = (document.getElementById('token-input').value || '').trim();
     if (!val){ ui.tokenDialogOpen = false; renderApp(); return; }
     try{ localStorage.setItem(TOKEN_KEY, val); }catch(e){}
+    nativeCall('setToken', {token:val});
     canWrite = true;
     ui.tokenDialogOpen = false;
     ui.mode = 'edit';
@@ -978,6 +1091,7 @@
   }
   function lockEditing(){
     try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+    nativeCall('setToken', {token:''});
     canWrite = false;
     ui.mode = 'display';
     renderApp();
@@ -1122,8 +1236,14 @@
     markDirty();
   }
 
-  function exportJson(){
+  async function exportJson(){
     var payload = JSON.stringify(state, null, 2);
+    if (NATIVE){
+      var r = await nativeCall('saveFile', {name:'weekly-routine.json', content:payload});
+      if (r && r.ok) toast('내보냈어요.');
+      else if (!(r && r.cancelled)) toast('파일로 저장하지 못했어요.');
+      return;
+    }
     var blob = new Blob([payload], {type:'application/json'});
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -1157,7 +1277,10 @@
       var res = await fetch(API_BASE + '/state', {cache:'no-store'});
       if (res.ok){
         var data = await res.json();
-        if (data && data.days){ state = data; cacheLocally(); }
+        if (data && data.days){
+          state = data; cacheLocally();
+          nativeCall('onState', {json: JSON.stringify(data)});
+        }
         ok = true;
       }
     }catch(e){ /* offline: keep whatever we already have (cache or defaults) */ }
@@ -1213,12 +1336,14 @@
       if (res.status === 401){
         toast('토큰이 올바르지 않아요. 편집 잠금을 풀고 다시 입력해주세요.');
         try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+        nativeCall('setToken', {token:''});
         canWrite = false; ui.mode = 'display';
       } else if (!res.ok){
         toast('저장하지 못했습니다. (오류 '+res.status+')');
       } else {
         dirty = false;
         cacheLocally();
+        nativeCall('onState', {json: JSON.stringify(state)});   // the phone's widget/alarms follow at once
         toast('저장했어요. 어느 기기에서 열어도 같은 내용이 보여요.');
       }
     }catch(e){
@@ -1259,6 +1384,12 @@
       else if (action === 'cancel-token-dialog') cancelTokenDialog();
       else if (action === 'lock') lockEditing();
       else if (action === 'refresh') refreshNow();
+      else if (action === 'toggle-native-panel') toggleNativePanel();
+      else if (action === 'native-test') nativeTestNotification();
+      else if (action === 'native-open-notify') nativeCall('openNotificationSettings');
+      else if (action === 'native-perm-notify') nativeCall('requestNotificationPermission');
+      else if (action === 'native-perm-exact') nativeCall('openExactAlarmSettings');
+      else if (action === 'native-perm-battery') nativeCall('openBatterySettings');
     });
     document.addEventListener('change', function(ev){
       var t = ev.target;
@@ -1269,6 +1400,7 @@
       else if (t.id === 'import-file' && t.files && t.files[0]) handleImportFile(t.files[0]);
       else if (t.id === 'edit-toggle') toggleEditMode();
       else if (t.id === 'scope-toggle') toggleDisplayScope();
+      else if (t.matches && t.matches('[data-native-setting]')) setNativeSetting(t.getAttribute('data-native-setting'), t.checked);
     });
     document.addEventListener('input', function(ev){
       var t = ev.target;
@@ -1365,6 +1497,7 @@
   /* ============== boot ============== */
   renderApp();
   loadRemote().then(renderApp);
+  syncTokenWithNative();
   // the desktop widget stays open for days, so it pulls edits made on other devices by itself
   if (WIDGET_VIEW){
     setInterval(function(){ loadRemote().then(renderApp); }, 10*60*1000);

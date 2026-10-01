@@ -10,7 +10,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
 
 /**
@@ -60,8 +59,9 @@ object Notifier {
         Build.VERSION.SDK_INT < 33 ||
             ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
+    /** the app itself (MainActivity hosts the web app) — for taps on the widget and notifications */
     fun openAppIntent(ctx: Context): PendingIntent = PendingIntent.getActivity(
-        ctx, 0, Intent(Intent.ACTION_VIEW, Uri.parse(RoutineRepository.APP_URL)),
+        ctx, 0, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     )
 

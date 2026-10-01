@@ -21,9 +21,13 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- the app: the web app in a WebView (+ bridge to notifications/widget) -->
         <activity
-            android:name=".SettingsActivity"
-            android:exported="true">
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

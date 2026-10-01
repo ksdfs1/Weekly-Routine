@@ -10,8 +10,8 @@ android {
         applicationId = "io.github.ksdfs1.weeklyroutine"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
     }
 
     buildTypes {
@@ -31,4 +31,5 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("androidx.webkit:webkit:1.12.1")
 }

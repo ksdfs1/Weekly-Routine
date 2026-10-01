@@ -56,7 +56,7 @@ class CasePickerActivity : Activity() {
         RoutineRepository.setCaseOverride(this, dayIndex, caseId)
         SyncWorker.afterSync(this)   // redraw the widget and reschedule for the new case
         if (RoutineRepository.token(this).isEmpty()) {
-            Toast.makeText(this, "이 기기에만 적용했어요. 앱 설정에 편집 토큰을 넣으면 모든 기기에 반영돼요.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "이 기기에만 적용했어요. 앱에서 편집 잠금을 풀어두면(편집 토큰) 모든 기기에 반영돼요.", Toast.LENGTH_LONG).show()
         } else {
             CaseSaveWorker.enqueue(this, dayIndex, caseId)
         }

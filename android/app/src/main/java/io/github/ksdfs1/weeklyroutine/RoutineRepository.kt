@@ -112,7 +112,8 @@ object RoutineRepository {
         }
     }
 
-    private fun store(ctx: Context, body: String) {
+    /** writes a routine JSON (fetched, or handed over by the app's web page) as the cache */
+    fun store(ctx: Context, body: String) {
         val tmp = File(ctx.filesDir, "$CACHE_FILE.tmp")
         tmp.writeText(body)
         tmp.renameTo(File(ctx.filesDir, CACHE_FILE))
