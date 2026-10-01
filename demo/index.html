@@ -52,8 +52,25 @@
   @media (max-width:520px){ .ctl-actions, .ctl-switches{ flex:1 0 100%; } }
   .readonly-badge{ font-size:.72rem; font-weight:600; color:var(--text-mute); border:1px solid var(--border); border-radius:999px; padding:4px 10px; white-space:nowrap; cursor:pointer; }
   .readonly-badge:hover{ border-color:var(--accent); color:var(--text); }
+  /* Android app only: the notification/app settings panel (see NATIVE) */
+  .nset{ display:flex; flex-direction:column; }
+  .nset-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0; }
+  .nset-row + .nset-row{ border-top:1px solid var(--border-soft); }
+  .nset-row.is-off{ opacity:.45; }
+  .nset-text{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .nset-title{ font-size:.88rem; font-weight:600; color:var(--text); }
+  .nset-sub{ font-size:.74rem; color:var(--text-mute); line-height:1.45; }
+  /* inside the Android app the WebView already sits between the system bars, so the page's own
+     safe-area padding would only double the gaps at the top and bottom */
+  html.native #app{ padding-top:14px; padding-bottom:12px; }
+  html.native .savebar{ bottom:6px; }
+  html.native .toast{ bottom:18px; }
+  .nset-ok{ font-size:.74rem; font-weight:700; color:#4cc38a; white-space:nowrap; }
+  .nset-actions{ display:flex; flex-wrap:wrap; gap:8px; padding-top:4px; }
+  .nset-row .btn{ flex:0 0 auto; white-space:nowrap; padding:8px 14px; }
   .lock-btn{ appearance:none; border:1px solid var(--border); background:var(--surface-2); color:var(--text-mute); font:inherit; font-size:.72rem; font-weight:600; padding:5px 10px; border-radius:999px; cursor:pointer; }
   .lock-btn:hover{ border-color:var(--danger); color:var(--danger); }
+  .lock-btn.active, .lock-btn.active:hover{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
   .refresh-btn:hover{ border-color:var(--accent); color:var(--text); }
   .refresh-btn:disabled{ opacity:.6; cursor:default; }
   .switchwrap{ display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
@@ -176,6 +193,8 @@
   /* lives outside #app so re-renders (renderApp) don't wipe a message that is showing */
   .toast{ font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif; position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--surface-3); border:1px solid var(--accent); color:var(--text); font-size:.82rem; font-weight:600; padding:10px 18px; border-radius:999px; box-shadow:0 12px 30px rgba(0,0,0,.4); z-index:50; opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease; max-width:min(90vw,420px); text-align:center; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
+  .demo-banner{ background:#182545; color:#eef1fb; font-size:.78rem; text-align:center; padding:9px 12px; border-bottom:1px solid #28365a; font-family:"IBM Plex Sans",system-ui,sans-serif; }
+  html.widget .demo-banner, html.native .demo-banner{ display:none; }
 
   @media (max-width:520px){
     .clocksection{ flex-direction:column; }
@@ -186,12 +205,101 @@
   @media (prefers-reduced-motion:reduce){
     .toast, svg.clock .seg{ transition:none; }
   }
+
+  /* ---- ?view=widget: compact week strip for the PC desktop widget (desktop-widget/) ---- */
+  html.widget{ scrollbar-gutter:auto; overflow:hidden; font-size:clamp(13px, 1.15vw, 18px); }
+  html.widget body{ background:var(--bg); overflow:hidden; }
+  html.widget #app{ max-width:none; height:100%; padding:10px 12px; gap:8px; }
+  html.widget .nowbar{ padding:6px 12px; border-radius:12px; flex:0 0 auto; }
+  html.widget .nowbar-title{ font-size:.9rem; }
+  html.widget .nowbar-sub{ font-size:.72rem; line-height:1.35; }
+  /* one day at a time, laid out like the Android widget: time + clock on the left 40%, the rest on the right */
+  .wbody{ flex:1 1 auto; min-height:0; display:flex; gap:12px; user-select:none; -webkit-user-select:none; }
+  .wleft{ flex:0 0 40%; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .wnow-time{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:800; font-size:1.3rem; line-height:1.15; color:var(--text); }
+  .wclock{ flex:1 1 auto; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; }
+  .wclock svg{ width:auto !important; height:100% !important; max-width:100%; max-height:100%; }
+  .wright{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .whead{ display:flex; align-items:center; gap:6px; }
+  .wday-title{ flex:0 0 auto; font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:.85rem; color:var(--text); white-space:nowrap; }
+  .wday-title.today{ color:var(--accent); }
+  .wcase-select{ flex:1 1 auto; min-width:0; font-size:.72rem; padding:3px 8px; border-radius:999px; background:var(--surface-2); color:var(--text-dim); cursor:pointer; }
+  .wcase-select:hover{ border-color:var(--accent); color:var(--text); }
+  /* "앱 열기": only while the pointer is over the widget; keeps its space so nothing shifts */
+  .wopen{ flex:0 0 auto; visibility:hidden; opacity:0; transition:opacity .2s ease, visibility .2s; font-size:.72rem; font-weight:700; color:var(--accent-ink); background:var(--accent); border-radius:999px; padding:3px 10px; text-decoration:none; white-space:nowrap; }
+  html.widget:hover .wopen{ visibility:visible; opacity:1; }
+  .wlist{ flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:1px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+  .wrow{ display:flex; align-items:center; gap:7px; padding:2px 6px; border:1px solid transparent; border-radius:6px; font-size:.76rem; }
+  .wrow.now{ background:rgba(245,185,92,.2); border-color:var(--accent); }
+  .wrow .wdot{ width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+  .wrow .wtime{ color:var(--text-dim); white-space:nowrap; }
+  .wrow .wlbl{ color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wlist .empty{ padding:10px; font-size:.75rem; }
+  .wdays{ flex:0 0 auto; display:flex; justify-content:center; gap:3px; }
+  .wday{ appearance:none; border:1px solid transparent; background:transparent; color:var(--text-mute); font:inherit; font-size:.68rem; font-weight:600; padding:1px 6px; border-radius:6px; cursor:pointer; }
+  .wday:hover{ color:var(--text); }
+  .wday.today{ color:var(--accent); }
+  .wday.active{ background:var(--surface-3); border-color:var(--border); color:var(--text); }
+  .wday-title .wd-short{ display:none; }
+  /* narrow widget (about 320px): short day name, one-line "지금", and "앱 열기" floats over the corner
+     instead of keeping its own space, so the case dropdown stays usable */
+  @media (max-width:420px){
+    html.widget #app{ padding:8px; gap:6px; }
+    html.widget .wbody{ gap:8px; }
+    html.widget .nowbar{ padding:5px 8px; gap:6px; border-radius:10px; }
+    html.widget .nowbar-tag{ display:none; }
+    html.widget .nowbar-sub{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .wday-title .wd-long{ display:none; }
+    .wday-title .wd-short{ display:inline; }
+    .wopen{ position:fixed; top:6px; right:6px; z-index:41; box-shadow:0 4px 12px rgba(0,0,0,.45); }
+    .wrow{ gap:5px; padding:2px 4px; }
+  }
+  /* inside the desktop app (WebView2): a move handle and a resize grip that show on hover */
+  .whandle{ display:none; position:fixed; z-index:40; opacity:0; transition:opacity .2s ease; user-select:none; }
+  html.hosted .whandle{ display:block; }
+  html.hosted:hover .whandle{ opacity:1; }
+  .whandle.move{ top:3px; left:3px; padding:1px 10px; border-radius:8px; background:var(--surface-3); border:1px solid var(--border); color:var(--text-dim); font:600 11px/1.6 "IBM Plex Sans", system-ui, sans-serif; cursor:move; }
+  .whandle.move:hover{ color:var(--text); border-color:var(--accent); }
+  .whandle.grip{ right:1px; bottom:1px; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 0 55%, var(--text-mute) 55% 62%, transparent 62% 72%, var(--text-mute) 72% 79%, transparent 79%); }
+  .whandle.grip:hover{ background:linear-gradient(135deg, transparent 0 55%, var(--accent) 55% 62%, transparent 62% 72%, var(--accent) 72% 79%, transparent 79%); }
 </style>
+<script>
+/* demo only: pretends to be the Android app's WRNative bridge so the "⚙ 알림" panel works.
+   Nothing leaves this page; settings live in memory until the page is closed. */
+(function(){
+  if (!/[?&]app=1(&|$)/.test(location.search)) return;
+  var settings = {notify:true, sound:true, vibrate:true, notifyGaps:true};
+  var bridge = {
+    onmessage: null,
+    postMessage: function(raw){
+      var m = JSON.parse(raw), a = m.args || {}, r = true;
+      switch (m.op){
+        case 'getSettings': r = settings; break;
+        case 'setSetting': settings[a.key] = !!a.value; break;
+        case 'getPermissions': r = {notifications:true, exactAlarm:true, battery:false}; break;
+        case 'getInfo': r = {lastSync: Date.now(), version: '데모'}; break;
+        case 'getToken': r = ''; break;
+        case 'sendTestNotification':
+          r = {ok:true};
+          try{ parent.postMessage({demoNotification: true}, '*'); }catch(e){}
+          break;
+        case 'saveFile':
+          var url = URL.createObjectURL(new Blob([a.content], {type:'application/json'}));
+          var link = document.createElement('a'); link.href = url; link.download = a.name;
+          document.body.appendChild(link); link.click(); link.remove();
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+          r = {ok:true};
+          break;
+      }
+      setTimeout(function(){ if (bridge.onmessage) bridge.onmessage({data: JSON.stringify({id:m.id, result:r})}); }, 30);
+    }
+  };
+  window.WRNative = bridge;
+})();
+</script>
 </head>
 <body>
-<div style="background:#182545;color:#eef1fb;font-size:.78rem;text-align:center;padding:9px 12px;border-bottom:1px solid #28365a;font-family:'IBM Plex Sans',system-ui,sans-serif;">
-  🧪 데모 페이지입니다 — 예시 데이터만 보여주며, 이 화면에서의 변경사항은 어디에도 저장되지 않습니다.
-</div>
+<div class="demo-banner">🧪 데모 페이지입니다 — 예시 데이터만 보여주며, 이 화면에서의 변경사항은 어디에도 저장되지 않습니다.</div>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script>
@@ -199,13 +307,40 @@
   "use strict";
 
   /* ============== backend ============== */
-  // Demo build: intentionally has no backend, so it only ever shows the
+  // Demo build (demo/build-demo.py): intentionally has no backend, so it only ever shows the
   // built-in example data and never reads/writes any real account's routine.
   var API_BASE = "";
-  // Separate storage keys from the real app so this demo never reads or
-  // writes the real app's cached data, even if opened in the same browser.
   var TOKEN_KEY = 'weekly-routine-DEMO-write-token';
   var LS_CACHE_KEY = 'weekly-routine-DEMO-cache-v1';
+  // ?view=widget renders only the "지금" bar + the week strip, for the PC desktop widget (desktop-widget/)
+  var WIDGET_VIEW = /[?&]view=widget(&|$)/.test(location.search);
+  if (WIDGET_VIEW) document.documentElement.classList.add('widget');
+  // set when the widget page runs inside the desktop app (desktop-widget/), which handles move/resize/menu
+  var HOST = WIDGET_VIEW && window.chrome && window.chrome.webview ? window.chrome.webview : null;
+  if (HOST) document.documentElement.classList.add('hosted');
+  // cases picked in the widget without an edit token: kept on this PC only, {dayKey: caseId}
+  var CASE_OVERRIDES_KEY = 'weekly-routine-DEMO-case-overrides';
+  // set when the page runs inside the Android app (android/ MainActivity), which injects this bridge:
+  // notification settings and permissions, the shared edit token, and pushing the routine to the widget
+  var NATIVE = window.WRNative || null;
+  var nativeSeq = 0, nativeWaiting = {};
+  function nativeCall(op, args){
+    return new Promise(function(resolve){
+      if (!NATIVE){ resolve(null); return; }
+      var id = ++nativeSeq;
+      nativeWaiting[id] = resolve;
+      NATIVE.postMessage(JSON.stringify({id:id, op:op, args:args || {}}));
+    });
+  }
+  if (NATIVE){
+    document.documentElement.classList.add('native');
+    NATIVE.onmessage = function(ev){
+      var m; try{ m = JSON.parse(ev.data); }catch(e){ return; }
+      if (m.event){ onNativeEvent(m.event); return; }
+      var done = nativeWaiting[m.id];
+      if (done){ delete nativeWaiting[m.id]; done(m.result); }
+    };
+  }
 
   /* ============== constants ============== */
   var DAY_DEFS = [
@@ -293,8 +428,11 @@
     refreshArmed: false,
     catDeleteArmedId: null,
     tokenDialogOpen: false,
-    clockSel: null           // highlighted clock slice: {key:'dayKey|caseId', start:minute}
+    clockSel: null,          // highlighted clock slice: {key:'dayKey|caseId', start:minute}
+    dayChangedAt: 0,
+    nativePanelOpen: false   // Android app: notification/app settings panel
   };
+  var nativeInfo = null;     // {settings, perms, info} for that panel, filled by refreshNativeInfo()
   var dirty = false;
   var saving = false;
   var loadingRemote = true;
@@ -369,7 +507,7 @@
       +' A '+rInner.toFixed(2)+' '+rInner.toFixed(2)+' 0 '+large+' 0 '+p4.x.toFixed(2)+' '+p4.y.toFixed(2)+' Z';
   }
   // the desktop widget shows its clocks small, so it uses a slightly tighter ring and larger text
-  var CLOCK_BIG = false;
+  var CLOCK_BIG = WIDGET_VIEW;
   function clockCenterName(name){
     var max = CLOCK_BIG ? 5 : 8;
     return name.length > max ? name.slice(0,max-1)+'…' : name;
@@ -542,7 +680,58 @@
       + '<div class="nowbar-sub">'+sub+'</div></div></div>';
   }
 
+  // the widget's day list keeps where it was scrolled across the 30s redraws (same day only)
+  var widgetListDay = -1;
+  function nowHHMM(){ var d = new Date(); return pad2(d.getHours())+':'+pad2(d.getMinutes()); }
+
+  // ?view=widget: one day like the Android widget — swipe (drag) left/right or tap the day strip to change day
+  function renderWidget(){
+    applyCaseOverrides();
+    var i = ui.dayIndex;
+    var day = dayByIndex(i);
+    var c = activeCase(day);
+    var today = isTodayIndex(i);
+    var st = today ? nowStatus() : null;
+    var options = day.cases.map(function(cs){
+      return '<option value="'+cs.id+'"'+(cs.id===c.id?' selected':'')+'>'+esc(cs.name)+'</option>';
+    }).join('');
+    var blocks = sortedBlocks(c);
+    var rows = blocks.length ? blocks.map(function(b){
+      var cat = catById(b.catId) || {color:'var(--unassigned)', name:'?'};
+      return '<div class="wrow'+(st && st.cur === b ? ' now' : '')+'">'
+        + '<span class="wdot" style="background:'+cat.color+'"></span>'
+        + '<span class="wtime tabular">'+fmtMin(b.start)+'–'+fmtMin(b.end)+'</span>'
+        + '<span class="wlbl">'+esc(b.label || cat.name)+'</span></div>';
+    }).join('') : '<div class="empty">이 케이스에는 블록이 없어요</div>';
+    var days = state.days.map(function(d, idx){
+      return '<button class="wday'+(idx===i?' active':'')+(isTodayIndex(idx)?' today':'')+'" data-action="set-day" data-day-index="'+idx+'">'+esc(d.short)+'</button>';
+    }).join('');
+
+    var oldList = document.getElementById('wlist');
+    var keepScroll = oldList && widgetListDay === i ? oldList.scrollTop : null;
+    app.innerHTML = '<div class="wbody daily-swipe" id="daily-swipe">'
+      + '<div class="wleft"><div class="wnow-time tabular" id="wnow-time">'+nowHHMM()+'</div>'
+      +   '<div class="wclock">'+renderClockSVG(day, c, 200, today)+'</div></div>'
+      + '<div class="wright">'
+      +   '<div class="whead"><span class="wday-title'+(today?' today':'')+'"><span class="wd-long">'+esc(day.label)+(today?' · 오늘':'')+'</span><span class="wd-short">'+esc(day.short)+'</span></span>'
+      +     '<select class="wcase-select" data-action="widget-set-case" data-day-index="'+i+'" title="케이스 선택">'+options+'</select>'
+      +     '<a class="wopen" href="./" target="_blank" rel="noopener" title="Weekly Routine 앱 열기">앱 열기 ↗</a></div>'
+      +   nowStatusHtml()
+      +   '<div class="wlist" id="wlist">'+rows+'</div>'
+      +   '<div class="wdays">'+days+'</div>'
+      + '</div></div>';
+    var list = document.getElementById('wlist');
+    if (keepScroll !== null) list.scrollTop = keepScroll;
+    else {
+      // new day: start a row above the block that is on now (or at the top)
+      var cur = list.querySelector('.wrow.now');
+      list.scrollTop = cur && cur.previousElementSibling ? cur.previousElementSibling.offsetTop - list.offsetTop : 0;
+    }
+    widgetListDay = i;
+  }
+
   function renderApp(){
+    if (WIDGET_VIEW){ renderWidget(); return; }
     var day = dayByIndex(ui.dayIndex);
     var c = activeCase(day);
     var html = '';
@@ -551,6 +740,7 @@
       + '<div class="brand"><h1>Weekly Routine</h1></div>'
       + '<div class="controls">'
       + '<div class="ctl-actions">'
+      + (NATIVE ? '<button class="lock-btn refresh-btn'+(ui.nativePanelOpen?' active':'')+'" data-action="toggle-native-panel" aria-pressed="'+(ui.nativePanelOpen?'true':'false')+'" title="알림 · 앱 설정">⚙ 알림</button>' : '')
       + '<button class="lock-btn refresh-btn" data-action="refresh"'+(refreshing?' disabled':'')+' title="다른 기기에서 저장한 최신 내용을 불러옵니다">'
       +   (refreshing ? '불러오는 중…' : (ui.refreshArmed ? '↻ 변경 버리고 새로고침?' : '↻ 새로고침')) + '</button>'
       + (canWrite
@@ -558,7 +748,7 @@
           : '<button class="readonly-badge" data-action="open-token-dialog">읽기 전용 · 편집하려면 탭</button>')
       + '</div>'
       // mode switch always comes first so it stays put when the daily/weekly switch appears or disappears
-      + '<div class="ctl-switches">'
+      + '<div class="ctl-switches"'+(NATIVE && ui.nativePanelOpen ? ' style="display:none"' : '')+'>'
       + (canWrite
           ? '<label class="switchwrap"><input type="checkbox" id="edit-toggle"'+(ui.mode==='edit'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.mode==='edit'?'편집 모드':'시현 모드')+'</span></label>'
           : '')
@@ -567,6 +757,11 @@
       +   '<input type="checkbox" id="scope-toggle"'+(ui.displayScope==='weekly'?' checked':'')+(ui.mode==='display'?'':' tabindex="-1" disabled')+'>'
       +   '<span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.displayScope==='weekly'?'주간':'일간')+'</span></label>'
       + '</div></div></div>';
+
+    if (NATIVE && ui.nativePanelOpen){
+      app.innerHTML = html + nativePanelHtml();
+      return;
+    }
 
     if (ui.tokenDialogOpen){
       html += '<div class="panel">'
@@ -626,6 +821,85 @@
     }
   }
 
+  /* ---- Android app: notification / app settings (what the app's old settings screen had) ---- */
+  function nativePanelHtml(){
+    var head = '<div class="panel"><div class="panel-title"><h2>알림 · 앱 설정</h2>'
+      + '<button class="icon-btn" data-action="toggle-native-panel">닫기</button></div>';
+    if (!nativeInfo) return head + '<div class="hint">불러오는 중…</div></div>';
+    var st = nativeInfo.settings || {}, pm = nativeInfo.perms || {}, info = nativeInfo.info || {};
+    var sw = function(key, title, sub, dependent){
+      var off = dependent && !st.notify;
+      return '<label class="nset-row switchwrap'+(off?' is-off':'')+'">'
+        + '<span class="nset-text"><span class="nset-title">'+title+'</span>'+(sub?'<span class="nset-sub">'+sub+'</span>':'')+'</span>'
+        + '<input type="checkbox" data-native-setting="'+key+'"'+(st[key]?' checked':'')+(off?' disabled':'')+'>'
+        + '<span class="switch-track"><span class="switch-thumb"></span></span></label>';
+    };
+    var perm = function(ok, title, sub, action, label){
+      return '<div class="nset-row"><span class="nset-text"><span class="nset-title">'+title+'</span><span class="nset-sub">'+sub+'</span></span>'
+        + (ok ? '<span class="nset-ok">허용됨</span>' : '<button class="btn primary" data-action="'+action+'">'+label+'</button>') + '</div>';
+    };
+    var last = info.lastSync ? new Date(info.lastSync) : null;
+    var lastText = last ? (last.getMonth()+1)+'/'+last.getDate()+' '+pad2(last.getHours())+':'+pad2(last.getMinutes()) : '없음';
+    return head
+      + '<div class="nset">'
+      + sw('notify', '상태 변경 알림', '루틴상 지금 할 일이 바뀌면 알려줘요', false)
+      + sw('sound', '소리', '', true)
+      + sw('vibrate', '진동', '', true)
+      + sw('notifyGaps', '미지정 시간 시작도 알림', '블록이 끝나고 빈 시간이 시작될 때', true)
+      + '</div>'
+      + '<div class="nset-actions"><button class="icon-btn" data-action="native-test">테스트 알림 보내기</button>'
+      + '<button class="icon-btn" data-action="native-open-notify">시스템 알림 설정</button></div>'
+      + '<div class="panel-title" style="margin-top:6px;"><h2>권한</h2></div>'
+      + '<div class="nset">'
+      + perm(pm.notifications, '알림', '꺼져 있으면 알림이 오지 않아요', 'native-perm-notify', '허용')
+      + perm(pm.exactAlarm, '정확한 알람', '없으면 알림이 몇 분 늦을 수 있어요', 'native-perm-exact', '허용')
+      + perm(pm.battery, '배터리 최적화 제외', '목록에서 Weekly Routine을 \'제한 없음\'으로 바꿔주세요', 'native-perm-battery', '설정 열기')
+      + '</div>'
+      + '<div class="hint">홈 화면을 길게 누르고 위젯 → Weekly Routine → \'오늘 루틴\'을 추가하세요. '
+      +   '저장하면 위젯과 알림에 바로 반영돼요. 마지막 동기화 '+lastText+(info.version?' · 앱 '+esc(info.version):'')+'</div>'
+      + '</div>';
+  }
+  async function refreshNativeInfo(){
+    var r = await Promise.all([nativeCall('getSettings'), nativeCall('getPermissions'), nativeCall('getInfo')]);
+    nativeInfo = {settings:r[0], perms:r[1], info:r[2]};
+    if (ui.nativePanelOpen) renderApp();
+  }
+  var nativePanelScrollY = 0;
+  function toggleNativePanel(){
+    ui.nativePanelOpen = !ui.nativePanelOpen;
+    // opening: start at the top; closing: back to where the page was
+    if (ui.nativePanelOpen) nativePanelScrollY = window.scrollY;
+    renderApp();
+    window.scrollTo(0, ui.nativePanelOpen ? 0 : nativePanelScrollY);
+    if (ui.nativePanelOpen) refreshNativeInfo();
+  }
+  async function setNativeSetting(key, value){
+    await nativeCall('setSetting', {key:key, value:value});
+    refreshNativeInfo();
+  }
+  async function nativeTestNotification(){
+    var r = await nativeCall('sendTestNotification');
+    if (r && r.ok) toast('테스트 알림을 보냈어요.');
+    else toast(r && r.reason === 'permission' ? '알림 권한을 먼저 허용해주세요.' : '루틴을 아직 불러오지 못했어요.');
+  }
+  function onNativeEvent(name){
+    // a permission was answered, or we came back from system settings
+    if ((name === 'permissions' || name === 'resume') && ui.nativePanelOpen) refreshNativeInfo();
+  }
+  // the app keeps the edit token too (the widget's case picker uses it): whichever side has one shares it
+  async function syncTokenWithNative(){
+    if (!NATIVE) return;
+    var mine = '';
+    try{ mine = localStorage.getItem(TOKEN_KEY) || ''; }catch(e){}
+    var theirs = await nativeCall('getToken') || '';
+    if (mine){ if (mine !== theirs) nativeCall('setToken', {token:mine}); return; }
+    if (theirs){
+      try{ localStorage.setItem(TOKEN_KEY, theirs); }catch(e){}
+      canWrite = true;
+      renderApp();
+    }
+  }
+
   function legendFor(c){
     var totals = {};
     c.blocks.forEach(function(b){ totals[b.catId] = (totals[b.catId]||0) + (b.end-b.start); });
@@ -637,6 +911,61 @@
       items.push('<div class="legenditem"><span class="swatch" style="background:var(--unassigned)"></span>미지정<span class="dur tabular">'+fmtDur(gapTotal)+'</span></div>');
     }
     return items.join('');
+  }
+
+  /* ---- widget: picking a case ----
+     With the edit token on this PC it is saved to the server (so every device follows);
+     without one it is kept on this PC only and wins over the server's choice for that day. */
+  function caseOverrides(){
+    try{ return JSON.parse(localStorage.getItem(CASE_OVERRIDES_KEY) || '{}') || {}; }catch(e){ return {}; }
+  }
+  function setCaseOverride(dayKey, caseId){
+    var o = caseOverrides();
+    if (caseId) o[dayKey] = caseId; else delete o[dayKey];
+    try{ localStorage.setItem(CASE_OVERRIDES_KEY, JSON.stringify(o)); }catch(e){}
+  }
+  function applyCaseOverrides(){
+    var o = caseOverrides();
+    state.days.forEach(function(d){
+      var id = o[d.key];
+      if (id && d.cases.some(function(cs){ return cs.id === id; })) d.activeCaseId = id;
+    });
+  }
+  async function widgetSetCase(dayIndex, caseId){
+    var dayKey = state.days[dayIndex].key;
+    state.days[dayIndex].activeCaseId = caseId;
+    setCaseOverride(dayKey, caseId);   // shows right away, and sticks if the save below fails
+    renderApp();
+    if (!API_BASE || API_BASE.indexOf('__API_BASE__') !== -1){ toast('데모 페이지라 서버에 저장하거나 불러오지 않아요.'); return; }
+    if (!canWrite){ toast('이 PC에만 적용했어요. 편집 토큰을 넣으면 모든 기기에 반영돼요.'); return; }
+    var token = '';
+    try{ token = localStorage.getItem(TOKEN_KEY) || ''; }catch(e){}
+    try{
+      // change only this day's case on top of the latest saved routine, not on our possibly older copy
+      var res = await fetch(API_BASE + '/state', {cache:'no-store'});
+      var latest = res.ok ? await res.json() : null;
+      if (!latest || !latest.days || !latest.days[dayIndex]) throw new Error('no state');
+      latest.days[dayIndex].activeCaseId = caseId;
+      var post = await fetch(API_BASE + '/state', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+token},
+        body: JSON.stringify(latest)
+      });
+      if (post.status === 401){
+        try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+        canWrite = false;
+        toast('편집 토큰이 올바르지 않아 이 PC에만 적용했어요.');
+        return;
+      }
+      if (!post.ok) throw new Error('HTTP '+post.status);
+      state = latest;
+      cacheLocally();
+      setCaseOverride(dayKey, null);
+      renderApp();
+      toast('저장했어요. 모든 기기에 반영돼요.');
+    }catch(e){
+      toast('서버에 저장하지 못해 이 PC에만 적용했어요.');
+    }
   }
 
   function setCaseForDay(dayIndex, caseId){
@@ -804,6 +1133,7 @@
     var val = (document.getElementById('token-input').value || '').trim();
     if (!val){ ui.tokenDialogOpen = false; renderApp(); return; }
     try{ localStorage.setItem(TOKEN_KEY, val); }catch(e){}
+    nativeCall('setToken', {token:val});
     canWrite = true;
     ui.tokenDialogOpen = false;
     ui.mode = 'edit';
@@ -812,6 +1142,7 @@
   }
   function lockEditing(){
     try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+    nativeCall('setToken', {token:''});
     canWrite = false;
     ui.mode = 'display';
     renderApp();
@@ -830,7 +1161,7 @@
     ui.displayScope = ui.displayScope === 'weekly' ? 'daily' : 'weekly';
     renderApp();
   }
-  function setDay(i){ ui.dayIndex = i; ui.editingBlockId = null; resetTransientUI(); renderApp(); }
+  function setDay(i){ ui.dayIndex = i; ui.dayChangedAt = Date.now(); ui.editingBlockId = null; resetTransientUI(); renderApp(); }
   function setCase(id){ dayByIndex(ui.dayIndex).activeCaseId = id; ui.editingBlockId = null; resetTransientUI(); markDirty(); }
 
   function addCase(){ ui.caseDialog = {mode:'add'}; renderApp(); }
@@ -956,8 +1287,14 @@
     markDirty();
   }
 
-  function exportJson(){
+  async function exportJson(){
     var payload = JSON.stringify(state, null, 2);
+    if (NATIVE){
+      var r = await nativeCall('saveFile', {name:'weekly-routine.json', content:payload});
+      if (r && r.ok) toast('내보냈어요.');
+      else if (!(r && r.cancelled)) toast('파일로 저장하지 못했어요.');
+      return;
+    }
     var blob = new Blob([payload], {type:'application/json'});
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -991,7 +1328,10 @@
       var res = await fetch(API_BASE + '/state', {cache:'no-store'});
       if (res.ok){
         var data = await res.json();
-        if (data && data.days){ state = data; cacheLocally(); }
+        if (data && data.days){
+          state = data; cacheLocally();
+          nativeCall('onState', {json: JSON.stringify(data)});
+        }
         ok = true;
       }
     }catch(e){ /* offline: keep whatever we already have (cache or defaults) */ }
@@ -1047,12 +1387,14 @@
       if (res.status === 401){
         toast('토큰이 올바르지 않아요. 편집 잠금을 풀고 다시 입력해주세요.');
         try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+        nativeCall('setToken', {token:''});
         canWrite = false; ui.mode = 'display';
       } else if (!res.ok){
         toast('저장하지 못했습니다. (오류 '+res.status+')');
       } else {
         dirty = false;
         cacheLocally();
+        nativeCall('onState', {json: JSON.stringify(state)});   // the phone's widget/alarms follow at once
         toast('저장했어요. 어느 기기에서 열어도 같은 내용이 보여요.');
       }
     }catch(e){
@@ -1093,15 +1435,23 @@
       else if (action === 'cancel-token-dialog') cancelTokenDialog();
       else if (action === 'lock') lockEditing();
       else if (action === 'refresh') refreshNow();
+      else if (action === 'toggle-native-panel') toggleNativePanel();
+      else if (action === 'native-test') nativeTestNotification();
+      else if (action === 'native-open-notify') nativeCall('openNotificationSettings');
+      else if (action === 'native-perm-notify') nativeCall('requestNotificationPermission');
+      else if (action === 'native-perm-exact') nativeCall('openExactAlarmSettings');
+      else if (action === 'native-perm-battery') nativeCall('openBatterySettings');
     });
     document.addEventListener('change', function(ev){
       var t = ev.target;
       if (t.matches && t.matches('[data-action="set-case"]')) setCase(t.value);
       else if (t.matches && t.matches('[data-action="set-case-for-day"]')) setCaseForDay(parseInt(t.dataset.dayIndex,10), t.value);
+      else if (t.matches && t.matches('[data-action="widget-set-case"]')) widgetSetCase(parseInt(t.dataset.dayIndex,10), t.value);
       else if (t.matches && t.matches('[data-action="cat-color"]')) setCatColor(t.dataset.catId, t.value);
       else if (t.id === 'import-file' && t.files && t.files[0]) handleImportFile(t.files[0]);
       else if (t.id === 'edit-toggle') toggleEditMode();
       else if (t.id === 'scope-toggle') toggleDisplayScope();
+      else if (t.matches && t.matches('[data-native-setting]')) setNativeSetting(t.getAttribute('data-native-setting'), t.checked);
     });
     document.addEventListener('input', function(ev){
       var t = ev.target;
@@ -1118,6 +1468,11 @@
   }
 
   setInterval(function(){
+    // the widget goes back to today 2 minutes after swiping away (and after midnight)
+    if (WIDGET_VIEW && !isTodayIndex(ui.dayIndex) && Date.now() - ui.dayChangedAt > 2*60*1000){
+      ui.dayIndex = (new Date().getDay() + 6) % 7;
+      clearClockSel();
+    }
     if (ui.mode === 'display'){ renderApp(); return; }
     // edit mode: a full re-render would wipe the form being typed in, so only swap the "지금" bar
     var bar = document.getElementById('now-status');
@@ -1173,9 +1528,37 @@
   });
   document.addEventListener('pointercancel', function(){ swipeState = null; });
 
+  /* desktop app: drag the top handle to move, the corner grip to resize, right-click for its menu */
+  if (HOST){
+    document.body.insertAdjacentHTML('beforeend',
+      '<div class="whandle move" data-host="move" title="끌어서 위젯 이동 · 우클릭하면 메뉴">⠿ 이동</div>'
+      + '<div class="whandle grip" data-host="resize" title="끌어서 크기 조절"></div>');
+    document.addEventListener('mousedown', function(ev){
+      var h = ev.button === 0 && ev.target.closest('[data-host]');
+      if (!h) return;
+      ev.preventDefault();
+      HOST.postMessage(h.getAttribute('data-host'));
+    });
+    document.addEventListener('contextmenu', function(ev){
+      ev.preventDefault();
+      HOST.postMessage('menu');
+    });
+  }
+
   /* ============== boot ============== */
   renderApp();
   loadRemote().then(renderApp);
+  syncTokenWithNative();
+  // the desktop widget stays open for days, so it pulls edits made on other devices by itself
+  if (WIDGET_VIEW){
+    setInterval(function(){ loadRemote().then(renderApp); }, 10*60*1000);
+    // the clock above the donut ticks on its own, between the 30s redraws
+    setInterval(function(){
+      var t = document.getElementById('wnow-time');
+      if (t) t.textContent = nowHHMM();
+    }, 5000);
+  }
+
 })();
 </script>
 </body>

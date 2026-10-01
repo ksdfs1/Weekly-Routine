@@ -17,6 +17,9 @@
 - **노션 등에 실제로 인라인 임베드**할 수 있어야 한다(iframe으로 삽입했을 때 바로 보이고 편집도 가능).
 - 편집은 아무나 못 하도록 **토큰 기반으로 잠금**되어 있고, 조회(시현)는 누구나 가능하다.
 - **휴대폰 홈 화면에 앱으로 설치(PWA)**할 수 있고, 설치하면 전체화면·오프라인으로 실행된다.
+- **안드로이드 앱**(선택): 같은 웹앱을 WebView로 띄우고, 홈 화면 위젯과 상태 변경 알림을 더한다(5.9).
+- **PC 바탕화면 위젯**(선택): 웹앱의 위젯 보기를 Windows 바탕화면에 띄워 둔다(5.8).
+- **데모**: 서버에 연결하지 않는 예시 데이터 전용 페이지로 웹앱·휴대폰 앱·위젯을 보여준다(5.6).
 
 ## 2. 기술 스택과 이유
 
@@ -26,20 +29,25 @@
 | 호스팅 | GitHub Pages | 무료, `X-Frame-Options` 헤더를 보내지 않아서 노션 iframe에 실제로 임베드된다 (Claude Artifacts는 `X-Frame-Options: SAMEORIGIN`을 보내서 노션 인라인 임베드가 막힘 — 이게 GitHub Pages로 옮긴 핵심 이유) |
 | 백엔드 | Cloudflare Workers + KV | 서버 관리 없이 JSON 하나를 저장/조회하는 초소형 API. 무료 티어로 충분 |
 | 인증 | Bearer 토큰 1개 | 여러 사용자를 구분할 필요가 없는 개인용 앱이라 최소 구성으로 충분 |
+| 안드로이드 앱 | Kotlin, WebView + JS 브리지, AppWidget, AlarmManager, WorkManager | PWA로는 홈 화면 위젯·정확한 알림을 만들 수 없음. 화면은 웹앱을 그대로 써서 편집기를 두 번 만들지 않음 |
+| PC 위젯 | .NET 8 WinForms + WebView2 | 웹앱의 위젯 보기를 그대로 띄우는 얇은 껍데기라 화면 코드가 하나로 유지됨 |
 
 ## 3. 아키텍처
 
 ```
-브라우저(노션 iframe 또는 직접 접속)
-   │
-   ▼
-GitHub Pages (index.html, 정적 파일 1개)
-   │  fetch()
-   ▼
-Cloudflare Worker  (GET/POST /state)
-   │
-   ▼
-Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
+브라우저(노션 iframe·직접 접속)   안드로이드 앱(WebView + WRNative 브리지, 위젯·알림)   PC 위젯(WebView2, ?view=widget)
+            │                              │                                      │
+            └──────────────┬───────────────┴──────────────────────────────────────┘
+                           ▼
+          GitHub Pages (index.html — 세 곳이 모두 같은 페이지를 씀)
+                           │  fetch()
+                           ▼
+          Cloudflare Worker  (GET/POST /state)
+                           │
+                           ▼
+          Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
+
+  demo/ (예시 데이터 전용, 서버 연결 없음): index.html · app.html · widgets.html
 ```
 
 - `GET /state` : 인증 없이 누구나 최신 상태 JSON을 읽을 수 있음.
@@ -115,12 +123,18 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
 ### 5.5 임베드
 - GitHub Pages URL을 노션의 "임베드" 블록에 붙여넣으면 iframe으로 바로 표시된다(별도 프록시 불필요).
 
-### 5.6 데모 페이지 (`demo/index.html`, 선택)
-- 본 앱 `index.html`을 그대로 복사한 뒤 다음만 바꾼 별도 페이지다. `index.html`을 고치면 같은 방식으로 다시 만들어 맞춘다.
-  - `<body>` 바로 아래에 "🧪 데모 페이지입니다" 안내 배너를 넣는다.
-  - `API_BASE = ""`로 둬서 서버에 접근하지 않게 하고, `TOKEN_KEY`/`LS_CACHE_KEY`에 `DEMO`를 붙여 본 앱의 로컬 데이터와 섞이지 않게 한다.
-  - 저장/새로고침의 "서버 주소 미설정" 안내를 "데모 페이지라 서버에 저장하거나 불러오지 않아요."로 바꾼다.
-  - PWA 태그(manifest, apple-* 메타)와 서비스워커 등록을 빼고, 파비콘만 `../icons/icon.svg`로 둔다.
+### 5.6 데모 (`demo/`, 선택)
+- **원칙: 데모는 항상 빈 껍데기다.** 앱에 내장된 예시 루틴(`buildDefaultState()`, 케이스 이름에 "(예시)")만 보여주고, 서버에 연결하지 않으며, 무엇을 바꿔도 저장되지 않는다. 실제 루틴·토큰·개인정보가 들어갈 경로가 없어야 한다.
+- `demo/index.html` — 웹앱 데모. **직접 고치지 않고** `python demo/build-demo.py`로 `index.html`에서 만든다(`index.html`을 고칠 때마다 다시 실행해 함께 커밋). 스크립트가 하는 일:
+  - `API_BASE = ""`(서버에 접근하지 않음). 그래서 저장·새로고침·위젯 케이스 저장의 "서버 주소 미설정" 안내가 "데모 페이지라 서버에 저장하거나 불러오지 않아요."로 바뀐다.
+  - `TOKEN_KEY`/`LS_CACHE_KEY`/`CASE_OVERRIDES_KEY`에 `DEMO`를 붙여, 같은 브라우저에서도 본 앱의 저장 공간과 섞이지 않게 한다.
+  - PWA 태그(manifest, apple-* 메타)와 서비스워커 등록을 빼고, 파비콘을 `../icons/icon.svg`로 바꾼다.
+  - 일반 화면에만 "🧪 데모 페이지입니다" 배너를 단다(위젯 보기·앱 틀 안에서는 숨김).
+  - `?app=1`일 때만 안드로이드 앱의 `WRNative` 브리지를 흉내 내는 가짜 객체를 넣는다(설정은 메모리에만, 테스트 알림은 부모 페이지에 가짜 알림 배너, JSON 내보내기는 일반 다운로드).
+  - 마지막에 결과물에 `workers.dev`나 본 앱의 저장 키가 남아 있으면 실패하고 파일을 쓰지 않는다.
+- `demo/app.html` — 휴대폰 앱 데모. 휴대폰 틀(상태바·내비게이션 바) 안에 `index.html?app=1`을 iframe으로 띄워, ⚙ 알림 패널까지 체험하게 한다.
+- `demo/widgets.html` — 위젯 데모. `index.html?view=widget`을 가짜 Windows 바탕화면(1280×720을 화면 폭에 맞게 축소, 640×300 / 321×304 크기 전환 버튼)과 가짜 휴대폰 홈 화면(4x2 자리)에 띄운다. 실제 안드로이드 위젯은 네이티브라 ◀ ▶ 등 세부가 다르다는 안내를 붙인다.
+- 데모 페이지끼리는 서로 링크하고, README에는 데모 주소만 싣는다(실제 앱 주소는 실제 루틴이 보이므로 싣지 않는다).
 
 ### 5.7 휴대폰 앱(PWA)
 - 빌드 과정 없이 정적 파일만 추가한다: `manifest.webmanifest`, `sw.js`, `icons/`(`icon.svg` 원본 + `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`(180px)). GitHub Pages가 `/<repo>/` 하위 경로에서 서비스되므로 manifest의 `start_url`/`scope`/아이콘 경로는 모두 **상대 경로**(`./`)로 쓴다.
@@ -153,10 +167,10 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
 - 휴대폰은 이 앱 하나로 쓴다(PWA는 홈 화면 위젯을 만들 수 없음). Kotlin, minSdk 26, AppCompat 없음, 의존성은 core-ktx, work-runtime, webkit.
 - **하이브리드 구조**: 런처 화면 `MainActivity`가 전체 화면 WebView로 웹앱 URL(GitHub Pages의 `index.html`)을 연다. 시현·편집 UI는 웹 코드 그대로다.
   - JavaScript·DOM storage를 켜고, 배경색을 `#080d1a`로 맞춘다. 시스템 바와 키보드 영역만큼 WebView에 padding을 준다(edge-to-edge).
-  - 같은 사이트(`ksdfs1.github.io/Weekly-Routine`) 밖의 링크는 외부 브라우저로 연다. 뒤로 가기는 `canGoBack()`이면 뒤로 간다.
+  - 같은 사이트(`<github-username>.github.io/<repo-name>`) 밖의 링크는 외부 브라우저로 연다. 뒤로 가기는 `canGoBack()`이면 뒤로 간다.
   - `<input type=file>`(JSON 가져오기)는 `onShowFileChooser`로 처리한다. 첫 실행에 인터넷이 없어 메인 프레임 로드가 실패하면 '다시 시도' 화면을 보여준다.
   - 디버그 빌드는 `WebView.setWebContentsDebuggingEnabled(true)`(PC의 chrome://inspect로 점검).
-- **JS 브리지 `WRNative`**: `WebViewCompat.addWebMessageListener`로 `https://ksdfs1.github.io` 출처의 메인 프레임에만 주입한다. 페이지는 `{id, op, args}` JSON을 `postMessage`하고, 앱은 `{id, result}`로 답한다. 앱 쪽에서 생긴 일은 `{event:'permissions'|'resume'}`로 알린다.
+- **JS 브리지 `WRNative`**: `WebViewCompat.addWebMessageListener`로 `https://<github-username>.github.io` 출처의 메인 프레임에만 주입한다. 페이지는 `{id, op, args}` JSON을 `postMessage`하고, 앱은 `{id, result}`로 답한다. 앱 쪽에서 생긴 일은 `{event:'permissions'|'resume'}`로 알린다.
 
   | op | 동작 |
   |---|---|
@@ -169,7 +183,7 @@ Cloudflare KV  (state라는 키에 JSON 문자열 통째로 저장)
   | `getToken` / `setToken{token}` | 편집 토큰 공유(위젯 케이스 저장용) |
   | `saveFile{name,content}` | JSON 내보내기를 `ACTION_CREATE_DOCUMENT`로 저장(WebView는 blob 다운로드 불가) |
 
-- **웹앱 쪽**(`index.html`): `window.WRNative`가 있을 때만 `<html class="native">`와 상단 **⚙ 알림** 버튼이 생긴다. 버튼을 누르면(버튼이 주황색으로 채워짐) 다른 화면 내용은 숨기고 '알림 · 앱 설정' 패널만 보여준다. 다시 누르거나 닫기를 누르면 원래 화면과 스크롤 위치로 돌아간다. 앱 안에서는 WebView가 이미 시스템 바 사이에 있으므로 페이지의 safe-area 여백을 빼서 위아래 이중 여백을 없앤다(스위치 4개, 테스트 알림, 시스템 알림 설정, 권한 3종, 위젯 안내, 마지막 동기화). `loadRemote` 성공·`saveState` 성공 때 `onState`를 부른다. 토큰 입력·잠금·401 때 `setToken`을 부른다. 시작할 때 `syncTokenWithNative()`로 어느 한쪽에만 있는 토큰을 다른 쪽에 넣는다. `exportJson`은 `saveFile`을 쓴다. PC 브라우저·PC 위젯에서는 아무것도 바뀌지 않는다.
+- **웹앱 쪽**(`index.html`): `window.WRNative`가 있을 때만 `<html class="native">`와 상단 **⚙ 알림** 버튼이 생긴다. 버튼을 누르면(버튼이 주황색으로 채워짐) 다른 화면 내용은 숨기고 '알림 · 앱 설정' 패널만 보여준다. 패널에는 스위치 4개, 테스트 알림, 시스템 알림 설정, 권한 3종, 위젯 안내, 마지막 동기화가 있다. 다시 누르거나 닫기를 누르면 원래 화면과 스크롤 위치로 돌아간다. 앱 안에서는 WebView가 이미 시스템 바 사이에 있으므로 페이지의 safe-area 여백을 빼서 위아래 이중 여백을 없앤다. `loadRemote` 성공·`saveState` 성공 때 `onState`를 부른다. 토큰 입력·잠금·401 때 `setToken`을 부른다. 시작할 때 `syncTokenWithNative()`로 어느 한쪽에만 있는 토큰을 다른 쪽에 넣는다. `exportJson`은 `saveFile`을 쓴다. PC 브라우저·PC 위젯에서는 아무것도 바뀌지 않는다.
 - 위젯이나 알림을 탭하면 `MainActivity`가 열린다.
 - `RoutineLogic.kt`는 `activeCase` / `segmentsWithGaps` / `nowStatus`를 그대로 옮긴 코드다. 웹앱 쪽을 바꾸면 여기도 맞춘다.
 - 데이터: `GET /state`를 받아(또는 웹 페이지가 `onState`로 넘겨줘서) `filesDir/state.json`에 캐시한다. `SyncWorker`가 1시간마다(네트워크 필요) 동기화하고, 위젯 ↻ 버튼으로도 동기화할 수 있다.
@@ -280,7 +294,16 @@ kv_namespaces = [
 var API_BASE = "https://weekly-routine-api.<YOUR_SUBDOMAIN>.workers.dev";
 ```
 
-`<YOUR_SUBDOMAIN>`을 자신의 Cloudflare Workers 서브도메인(아래 8단계에서 만든 것)으로 바꾼다. 나머지 코드는 수정할 필요 없음.
+`<YOUR_SUBDOMAIN>`을 자신의 Cloudflare Workers 서브도메인(아래 8단계에서 만든 것)으로 바꾼다. 웹앱은 이것만 바꾸면 된다.
+
+안드로이드 앱과 PC 위젯까지 쓴다면, 배포 주소가 들어 있는 곳을 함께 바꾼다.
+
+| 파일 | 값 |
+|---|---|
+| `android/.../RoutineRepository.kt` | `API_BASE`(Worker 주소), `APP_URL`(`https://<github-username>.github.io/<repo-name>/`) |
+| `android/.../MainActivity.kt` | `APP_HOST`(`<github-username>.github.io`), `APP_PATH`(`/<repo-name>`) — 브리지를 허용할 출처와 앱 안에 머무를 경로 |
+| `desktop-widget/Program.cs` | `AppUrl`(GitHub Pages 주소) |
+| `demo/*.html` | GitHub 저장소 링크 |
 
 ## 8. 처음부터 구축하는 단계
 
@@ -297,13 +320,17 @@ var API_BASE = "https://weekly-routine-api.<YOUR_SUBDOMAIN>.workers.dev";
 11. **GitHub에 push**: `index.html`, `worker/` 폴더를 커밋하고 `main`에 push한다. 몇 초~몇 분 뒤 `https://<github-username>.github.io/<repo-name>/`에서 앱이 열린다.
 12. **편집 잠금 해제**: 배포된 앱을 열고 "읽기 전용 · 편집하려면 탭"을 눌러 7번에서 만든 토큰을 입력한다. 이후 이 브라우저에서는 편집 모드가 계속 유지된다(다른 기기/브라우저에서는 다시 토큰을 입력해야 함).
 13. **노션에 임베드**: 노션 페이지에서 `/embed` → GitHub Pages URL 붙여넣기.
-14. **휴대폰에 앱으로 설치**: 휴대폰 브라우저로 GitHub Pages URL 접속 → Android Chrome은 ⋮ 메뉴 "앱 설치", iPhone Safari는 공유 → "홈 화면에 추가". (5.7의 PWA 파일들이 함께 push되어 있어야 함)
+14. **휴대폰에 앱으로 설치**: iPhone은 Safari로 GitHub Pages URL 접속 → 공유 → "홈 화면에 추가". (5.7의 PWA 파일들이 함께 push되어 있어야 함) 안드로이드는 16번의 앱을 쓴다(PWA도 Chrome ⋮ → "앱 설치"로 되지만 위젯·알림이 없음).
+15. **데모 만들기(선택)**: `python demo/build-demo.py`로 `demo/index.html`을 만들고, `demo/app.html`, `demo/widgets.html`과 함께 push한다. `https://<github-username>.github.io/<repo-name>/demo/`에서 열린다. 결과물에 서버 주소가 없는지 스크립트가 확인한다.
+16. **안드로이드 앱(선택)**: 7장 표의 주소를 바꾸고 Android Studio로 `android/`를 연다. `gradlew assembleDebug`로 APK를 만들어 폰에 설치한다. 앱을 열어 편집 토큰을 한 번 넣고, ⚙ 알림에서 권한을 허용한 뒤 홈 화면에 '오늘 루틴' 위젯을 추가한다.
+17. **PC 위젯(선택)**: `desktop-widget/Program.cs`의 `AppUrl`을 바꾸고 `dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true --self-contained false`로 exe를 만든다. 원하는 폴더에 두고 한 번 실행하면 Windows 시작 시 자동 실행까지 등록된다. 위젯에서 케이스를 서버에 저장하려면 트레이 메뉴 → 편집 토큰 설정…에 토큰을 넣는다.
 
 ## 9. 보안 — 반드시 지킬 것
 
 - **`WRITE_TOKEN` 값은 절대로 git 저장소에 커밋하지 않는다.** 코드 어디에도 하드코딩하지 말고, 로컬에서만 쓰는 메모 파일(예: `편집-토큰.txt`)에 적어두고 `.gitignore`에 그 파일명을 등록해서 실수로라도 올라가지 않게 한다.
 - Worker의 `GET /state`는 의도적으로 인증 없이 공개되어 있다(조회는 누구나 가능). 루틴 내용을 비공개로 하고 싶다면 GET에도 같은 Bearer 토큰 검사를 추가하면 된다.
 - 저장소를 public으로 만들 경우, 커밋하기 전에 `git status`로 토큰/비밀 파일이 스테이징되지 않았는지 매번 확인하는 습관을 들인다.
+- **데모에는 실제 데이터가 들어가면 안 된다.** `demo/index.html`은 손으로 고치지 말고 `build-demo.py`로만 만든다(서버 주소가 남으면 스크립트가 멈춤). README 등 공개 문서에는 실제 앱 주소(`GET /state`가 공개라 실제 루틴이 보임) 대신 데모 주소를 싣는다.
 
 ## 10. AI에게 그대로 줄 수 있는 요청 예시
 
@@ -311,6 +338,7 @@ var API_BASE = "https://weekly-routine-api.<YOUR_SUBDOMAIN>.workers.dev";
 아래는 "Weekly Routine"이라는 개인 루틴 관리 웹앱의 전체 스펙이야.
 이 문서에 있는 데이터 모델, 기능 스펙, Worker 코드, index.html 구조를 그대로 재현해서
 GitHub Pages + Cloudflare Worker 조합으로 새로 만들어줘.
+안드로이드 앱(5.9), PC 위젯(5.8), 데모(5.6)는 웹앱이 다 된 다음에 순서대로 진행해줘.
 API_BASE, KV 네임스페이스 id, WRITE_TOKEN은 내가 새로 발급받은 값으로 채울 거니까
 플레이스홀더로 남겨두고, 8번 섹션의 단계대로 하나씩 진행해줘.
 

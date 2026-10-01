@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080d1a">
+<link rel="icon" type="image/svg+xml" href="../icons/icon.svg">
+<title>위젯 데모 · Weekly Routine</title>
+<!-- Demo only: the widget screen (demo/index.html?view=widget = example data, no backend, nothing
+     saved) placed on a mock Windows desktop and a mock phone home screen. -->
+<style>
+  :root{ --bg:#080d1a; --surface:#111a30; --surface-2:#182545; --border:#28365a; --border-soft:#1b2846; --text:#eef1fb; --text-dim:#a7b2cf; --text-mute:#6d7897; --accent:#f5b95c; --accent-ink:#241505; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{ background:radial-gradient(1100px 700px at 15% -8%, #0c1428, var(--bg) 60%); color:var(--text); font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap{ max-width:1200px; margin:0 auto; padding:24px 16px 56px; display:flex; flex-direction:column; gap:36px; }
+  header{ display:flex; flex-direction:column; gap:10px; }
+  h1{ font-family:"Sora", system-ui, sans-serif; font-size:1.7rem; margin:0; letter-spacing:-.01em; }
+  h2{ font-family:"Sora", system-ui, sans-serif; font-size:1.15rem; margin:0; }
+  .badge{ align-self:flex-start; font-size:.74rem; font-weight:700; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:3px 10px; }
+  p, li{ font-size:.9rem; line-height:1.6; color:var(--text-dim); margin:0; }
+  ul{ margin:0; padding-left:1.1em; display:flex; flex-direction:column; gap:4px; }
+  b{ color:var(--text); }
+  .links{ display:flex; flex-wrap:wrap; gap:8px; }
+  .links a, .sizes button{ font:inherit; font-size:.8rem; font-weight:600; color:var(--text-dim); text-decoration:none; border:1px solid var(--border); background:var(--surface-2); border-radius:999px; padding:6px 12px; cursor:pointer; }
+  .links a:hover, .sizes button:hover{ color:var(--text); border-color:var(--accent); }
+  .sizes button[aria-pressed="true"]{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  section{ display:flex; flex-direction:column; gap:14px; }
+  .row{ display:flex; flex-wrap:wrap; gap:28px; align-items:flex-start; }
+  .about{ flex:1 1 300px; display:flex; flex-direction:column; gap:12px; }
+
+  /* mock Windows desktop, drawn at 1280x720 and scaled to fit (see fitDesktop) */
+  .desk-outer{ width:100%; max-width:960px; border-radius:14px; overflow:hidden; border:1px solid var(--border); box-shadow:0 24px 60px rgba(0,0,0,.5); }
+  .desk{ position:relative; width:1280px; height:720px; transform-origin:0 0;
+    background:radial-gradient(900px 500px at 20% 20%, #2a4a7a, transparent 60%), radial-gradient(800px 600px at 85% 80%, #5a3a6a, transparent 60%), linear-gradient(135deg, #16233d, #241a33); }
+  .desk .icons{ position:absolute; left:20px; top:20px; display:grid; gap:18px; }
+  .desk .icons span{ display:block; width:46px; height:46px; border-radius:10px; background:rgba(255,255,255,.14); }
+  .desk .taskbar{ position:absolute; left:0; right:0; bottom:0; height:48px; background:rgba(16,20,32,.92); display:flex; align-items:center; justify-content:center; gap:10px; }
+  .desk .taskbar span{ width:28px; height:28px; border-radius:6px; background:rgba(255,255,255,.18); }
+  .desk .taskbar .tray{ position:absolute; right:16px; width:auto; height:auto; background:none; color:#dfe4f0; font-size:13px; }
+  .desk iframe{ position:absolute; right:24px; bottom:72px; border:0; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.45); background:var(--bg); }
+
+  /* mock phone home screen */
+  .phone{ flex:0 0 auto; width:360px; max-width:100%; border-radius:42px; padding:11px; background:#1a2030; box-shadow:0 30px 80px rgba(0,0,0,.55), inset 0 0 0 2px #2a3246; }
+  .home{ border-radius:32px; overflow:hidden; height:600px; display:flex; flex-direction:column; gap:18px; padding:0 14px 18px;
+    background:radial-gradient(500px 400px at 30% 10%, #2f5b8f, transparent 60%), radial-gradient(500px 500px at 90% 90%, #6a4a7f, transparent 60%), linear-gradient(160deg, #1b2c4c, #2a1f3c); }
+  .home .statusbar{ height:30px; display:flex; align-items:center; justify-content:space-between; padding:0 8px; font-size:.78rem; font-weight:700; font-variant-numeric:tabular-nums; }
+  .home iframe{ width:100%; height:190px; border:0; border-radius:18px; background:var(--bg); box-shadow:0 8px 24px rgba(0,0,0,.35); }
+  .home .apps{ display:grid; grid-template-columns:repeat(4, 1fr); gap:18px 10px; padding:6px 6px 0; }
+  .home .apps span{ aspect-ratio:1; border-radius:16px; background:rgba(255,255,255,.16); }
+  .home .dock{ margin-top:auto; display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; padding:10px; border-radius:22px; background:rgba(255,255,255,.1); }
+  .home .dock span{ aspect-ratio:1; border-radius:14px; background:rgba(255,255,255,.2); }
+  .note{ font-size:.8rem; color:var(--text-mute); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="badge">🧪 데모 · 예시 데이터 · 저장 안 됨</span>
+    <h1>위젯 데모</h1>
+    <p>PC 바탕화면 위젯과 안드로이드 홈 화면 위젯이 보여주는 화면입니다. 실제 서버에 연결되지 않고 예시 루틴만 보여주며, 여기서 바꾼 내용은 어디에도 저장되지 않습니다.</p>
+    <div class="links">
+      <a href="./">웹앱 데모</a>
+      <a href="app.html">휴대폰 앱 데모</a>
+      <a href="https://github.com/ksdfs1/Weekly-Routine">GitHub 저장소</a>
+    </div>
+  </header>
+
+  <section aria-labelledby="pc-title">
+    <h2 id="pc-title">PC 바탕화면 위젯</h2>
+    <div class="row">
+      <div class="about">
+        <ul>
+          <li>왼쪽에 현재 시각과 오늘 시계, 오른쪽에 케이스 선택 · '지금' · 그날 블록 목록</li>
+          <li>위젯을 <b>마우스로 누른 채 좌우로 끌면</b> 요일이 넘어가요(아래 요일 띠를 눌러도 돼요)</li>
+          <li>마우스를 올리면 오른쪽 위에 <b>앱 열기 ↗</b> 버튼이 나타나요</li>
+          <li>시계의 구간을 누르면 그 구간이 강조돼요</li>
+        </ul>
+        <div class="sizes" role="group" aria-label="위젯 크기">
+          <button type="button" data-w="640" data-h="300" aria-pressed="true">기본 640×300</button>
+          <button type="button" data-w="321" data-h="304" aria-pressed="false">좁게 321×304</button>
+        </div>
+        <p class="note">실제 PC 위젯(<code>desktop-widget/</code>)은 이 화면을 테두리 없는 창으로 바탕화면에 붙여 두고, 끌어서 이동·크기 조절, Windows 시작 시 자동 실행을 지원해요.</p>
+      </div>
+    </div>
+    <div class="desk-outer" id="desk-outer">
+      <div class="desk" id="desk">
+        <div class="icons"><span></span><span></span><span></span></div>
+        <iframe id="pc-widget" src="index.html?view=widget" width="640" height="300" title="PC 위젯 (데모)"></iframe>
+        <div class="taskbar"><span></span><span></span><span></span><span></span><span class="tray" id="desk-clock">9:41</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="phone-title">
+    <h2 id="phone-title">휴대폰 홈 화면 위젯</h2>
+    <div class="row">
+      <div class="phone" aria-label="휴대폰 홈 화면 미리보기">
+        <div class="home">
+          <div class="statusbar"><span id="phone-clock">9:41</span><span>▂▄▆ ◔</span></div>
+          <iframe src="index.html?view=widget" title="휴대폰 위젯 (데모)"></iframe>
+          <div class="apps"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="dock"><span></span><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <div class="about">
+        <ul>
+          <li>4x2 크기: 왼쪽 40%에 현재 시각과 시계(가운데에 지금 상태와 남은 시간), 오른쪽 60%에 케이스 · '지금' · 블록 목록</li>
+          <li>요일 띠를 눌러 다른 요일을 보고, 2분이 지나면 오늘로 돌아와요</li>
+          <li>상태가 바뀌는 순간 알림이 와요(소리·진동은 앱의 ⚙ 알림에서 설정)</li>
+        </ul>
+        <p class="note">실제 안드로이드 위젯은 앱(<code>android/</code>)이 네이티브로 그립니다. 홈 화면 위젯은 좌우로 밀 수 없어서 ◀ ▶ 버튼과 요일 띠로 요일을 넘기고, 블록 목록의 줄을 누르면 시계에서 그 구간이 강조되는 등 세부 동작이 이 미리보기와 조금 달라요.</p>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+  (function(){
+    var outer = document.getElementById('desk-outer'), desk = document.getElementById('desk');
+    function fitDesktop(){
+      var k = outer.clientWidth / 1280;
+      desk.style.transform = 'scale(' + k + ')';
+      outer.style.height = (720 * k) + 'px';
+    }
+    window.addEventListener('resize', fitDesktop);
+    fitDesktop();
+
+    var widget = document.getElementById('pc-widget');
+    Array.prototype.forEach.call(document.querySelectorAll('.sizes button'), function(b){
+      b.addEventListener('click', function(){
+        widget.width = b.dataset.w; widget.height = b.dataset.h;
+        Array.prototype.forEach.call(document.querySelectorAll('.sizes button'), function(o){ o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+      });
+    });
+
+    function tick(){
+      var d = new Date(), t = d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2);
+      document.getElementById('desk-clock').textContent = t;
+      document.getElementById('phone-clock').textContent = t;
+    }
+    tick(); setInterval(tick, 10000);
+  })();
+</script>
+</body>
+</html>
