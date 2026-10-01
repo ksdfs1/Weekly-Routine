@@ -29,6 +29,7 @@
     --danger:#e66767;
     --gap-ring:#0a0f1e;
     --unassigned:#243354;
+    --switch-alt:#4a78c9;
     color-scheme: dark;
   }
   *{ box-sizing:border-box; }
@@ -85,6 +86,10 @@
   .switch-thumb{ position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--text-mute); transition:transform .2s ease, background .2s ease; }
   .switchwrap input:checked + .switch-track{ background:var(--accent); border-color:var(--accent); }
   .switchwrap input:checked + .switch-track .switch-thumb{ transform:translateX(18px); background:var(--accent-ink); }
+  /* switches that pick between two views (시현/편집, 일간/주간, 시간별/총시간) rather than turning
+     something on or off: both sides are coloured — blue on the left, amber on the right */
+  .switchwrap.dual .switch-track{ background:var(--switch-alt); border-color:var(--switch-alt); }
+  .switchwrap.dual .switch-thumb{ background:var(--text); }
   .switch-label{ font-size:.82rem; font-weight:600; color:var(--text-dim); }
 
   /* ---- day tabs ---- */
@@ -150,9 +155,30 @@
   .clockmeta h3{ font-size:1.05rem; color:var(--text); }
   .clockmeta .sub{ font-size:.8rem; color:var(--text-mute); margin-top:-6px;}
   .legend{ display:flex; flex-direction:column; gap:7px; }
-  .legend-daily{ column-gap:16px; }
+  /* under each clock: "시간별 상태" (the blocks, like the widget's list) and "카테고리별 총시간".
+     Wide enough (≥440px): both, side by side. Narrower (phones, weekly cards): one at a time,
+     picked with the switch in the header (shared by every clock, remembered on this device). */
+  .lgbox{ container-type:inline-size; width:100%; display:flex; flex-direction:column; gap:8px; }
+  .lghead{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:24px; }
+  .lgtitle{ font-size:.74rem; font-weight:700; color:var(--text-dim); letter-spacing:.02em; text-transform:none; }
+  .lghead .lgtitle .t-totals, .lgbox[data-mode="totals"] .lghead .t-timeline{ display:none; }
+  .lgbox[data-mode="totals"] .lghead .t-totals{ display:inline; }
+  .lgcols{ display:grid; grid-template-columns:minmax(0,1fr); gap:6px 22px; align-items:start; }
+  .lgcol{ min-width:0; }
+  .lgcol > .lgtitle{ display:none; margin-bottom:7px; }
+  .lgbox[data-mode="timeline"] .lgcol.totals, .lgbox[data-mode="totals"] .lgcol.timeline{ display:none; }
+  @container (min-width:440px){
+    .lghead{ display:none; }
+    .lgcols{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .lgbox[data-mode] .lgcol.timeline, .lgbox[data-mode] .lgcol.totals{ display:block; }
+    .lgcol > .lgtitle{ display:block; }
+  }
+  .tlitem{ display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--text); padding:2px 6px; margin:0 -6px; border:1px solid transparent; border-radius:6px; }
+  .tlitem .tm{ color:var(--text-dim); white-space:nowrap; font-size:.76rem; }
+  .tlitem .nm{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tlitem.now{ background:rgba(245,185,92,.16); border-color:var(--accent); }
+  .tl-empty{ font-size:.78rem; color:var(--text-mute); }
   @media (min-width:521px){
-    .legend-daily{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); row-gap:6px; }
   }
   .legenditem{ display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--text-dim); }
   .legenditem .dur{ margin-left:auto; color:var(--text-mute); font-size:.76rem; }
@@ -187,6 +213,9 @@
   .caseselect.small{ width:100%; font-size:.74rem; padding:6px 6px; min-width:0; }
   .daycard .legend{ width:100%; gap:4px; }
   .daycard .legenditem{ font-size:.7rem; gap:6px; }
+  .daycard .tlitem{ font-size:.7rem; gap:6px; }
+  .daycard .tlitem .tm{ font-size:.66rem; }
+  .daycard .lgbox{ gap:6px; }
 
   /* ---- data tools / save bar ---- */
   /* the save bar follows the scroll (status + save); the JSON backup tools sit at the very end */
@@ -718,10 +747,10 @@
       // mode switch always comes first so it stays put when the daily/weekly switch appears or disappears
       + '<div class="ctl-switches"'+(NATIVE && ui.nativePanelOpen ? ' style="display:none"' : '')+'>'
       + (canWrite
-          ? '<label class="switchwrap"><input type="checkbox" id="edit-toggle"'+(ui.mode==='edit'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.mode==='edit'?'편집 모드':'시현 모드')+'</span></label>'
+          ? '<label class="switchwrap dual"><input type="checkbox" id="edit-toggle"'+(ui.mode==='edit'?' checked':'')+'><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.mode==='edit'?'편집 모드':'시현 모드')+'</span></label>'
           : '')
       // in edit mode the daily/weekly switch keeps its space (hidden) so nothing shifts on wide screens either
-      + '<label class="switchwrap'+(ui.mode==='display'?'':' is-placeholder')+'"'+(ui.mode==='display'?'':' aria-hidden="true"')+'>'
+      + '<label class="switchwrap dual'+(ui.mode==='display'?'':' is-placeholder')+'"'+(ui.mode==='display'?'':' aria-hidden="true"')+'>'
       +   '<input type="checkbox" id="scope-toggle"'+(ui.displayScope==='weekly'?' checked':'')+(ui.mode==='display'?'':' tabindex="-1" disabled')+'>'
       +   '<span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">'+(ui.displayScope==='weekly'?'주간':'일간')+'</span></label>'
       + '</div></div></div>';
@@ -777,7 +806,11 @@
       html += renderEditPanel(day, c);
     }
 
+    var oldGrid = document.getElementById('daygrid');
+    var gridScroll = oldGrid ? oldGrid.scrollLeft : 0;
     app.innerHTML = html;
+    var newGrid = document.getElementById('daygrid');
+    if (newGrid && gridScroll) newGrid.scrollLeft = gridScroll;
     bindTimeSelectDependencies();
     if (ui.caseDialog){
       var dialogInput = document.getElementById('case-dialog-input');
@@ -866,6 +899,41 @@
       canWrite = true;
       renderApp();
     }
+  }
+
+  // which list a narrow clock shows: 'timeline' (default) or 'totals'; a per-device preference
+  var LEGEND_MODE_KEY = 'weekly-routine-legend-mode';
+  var legendMode = 'timeline';
+  try{ if (localStorage.getItem(LEGEND_MODE_KEY) === 'totals') legendMode = 'totals'; }catch(e){}
+
+  function timelineFor(c, today){
+    var blocks = sortedBlocks(c);
+    if (!blocks.length) return '<div class="tl-empty">블록이 없어요</div>';
+    var cur = today ? nowStatus().cur : null;
+    return blocks.map(function(b){
+      var cat = catById(b.catId) || {color:'var(--unassigned)', name:'?'};
+      return '<div class="tlitem'+(b === cur ? ' now' : '')+'"><span class="swatch" style="background:'+cat.color+'"></span>'
+        + '<span class="tm tabular">'+fmtMin(b.start)+'–'+fmtMin(b.end)+'</span>'
+        + '<span class="nm">'+esc(b.label || cat.name)+'</span></div>';
+    }).join('');
+  }
+  // the box under a clock: header (title + switch, narrow only) and the two lists
+  function legendBoxHtml(c, today){
+    return '<div class="lgbox" data-mode="'+legendMode+'">'
+      + '<div class="lghead"><span class="lgtitle"><span class="t-timeline">시간별 상태</span><span class="t-totals">카테고리별 총시간</span></span>'
+      + '<label class="switchwrap dual lgswitch" title="시간별 상태 ↔ 카테고리별 총시간"><input type="checkbox" data-action="legend-mode" aria-label="시간별 상태 / 카테고리별 총시간 전환"'+(legendMode==='totals'?' checked':'')+'>'
+      + '<span class="switch-track"><span class="switch-thumb"></span></span></label></div>'
+      + '<div class="lgcols">'
+      + '<div class="lgcol timeline"><div class="lgtitle">시간별 상태</div><div class="legend">'+timelineFor(c, today)+'</div></div>'
+      + '<div class="lgcol totals"><div class="lgtitle">카테고리별 총시간</div><div class="legend">'+legendFor(c)+'</div></div>'
+      + '</div></div>';
+  }
+  // flip every clock's list in place (no re-render, so scroll positions stay put)
+  function setLegendMode(mode){
+    legendMode = mode;
+    try{ localStorage.setItem(LEGEND_MODE_KEY, mode); }catch(e){}
+    Array.prototype.forEach.call(document.querySelectorAll('.lgbox'), function(box){ box.setAttribute('data-mode', mode); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="legend-mode"]'), function(cb){ cb.checked = mode === 'totals'; });
   }
 
   function legendFor(c){
@@ -959,7 +1027,7 @@
       + '<div class="clockmeta">'
       + '<h3>'+esc(day.label)+(today?' · 오늘':'')+'</h3>'
       + '<select class="caseselect" data-action="set-case-for-day" data-day-index="'+i+'">'+options+'</select>'
-      + '<div class="legend legend-daily">'+legendFor(c)+'</div>'
+      + legendBoxHtml(c, today)
       + '</div></div></div>';
   }
 
@@ -976,7 +1044,7 @@
       + '<select class="caseselect small" data-action="set-case-for-day" data-day-index="'+i+'">'+options+'</select>'
       + '</div>'
       + svg
-      + '<div class="legend">'+legendFor(c)+'</div>'
+      + legendBoxHtml(c, today)
       + '</div>';
   }
 
@@ -1419,6 +1487,7 @@
       else if (t.id === 'import-file' && t.files && t.files[0]) handleImportFile(t.files[0]);
       else if (t.id === 'edit-toggle') toggleEditMode();
       else if (t.id === 'scope-toggle') toggleDisplayScope();
+      else if (t.matches && t.matches('[data-action="legend-mode"]')) setLegendMode(t.checked ? 'totals' : 'timeline');
       else if (t.matches && t.matches('[data-native-setting]')) setNativeSetting(t.getAttribute('data-native-setting'), t.checked);
     });
     document.addEventListener('input', function(ev){
