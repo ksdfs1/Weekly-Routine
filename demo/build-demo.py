@@ -81,7 +81,8 @@ sub(r'(\.toast\.show\{[^\n]*\n)',
     r'  html.widget .demo-banner, html.native .demo-banner{ display:none; }\n')
 # the banner also links to the other demos (phone app, widgets)
 sub(r'<body>\n', '<body>\n<div class="demo-banner">🧪 데모 페이지입니다 — 예시 데이터만 보여주며, 이 화면에서의 변경사항은 어디에도 저장되지 않습니다.'
-    '<a href="app.html">📱 휴대폰 앱 데모</a><a href="widgets.html">🖥 위젯 데모</a></div>\n')
+    '<a href="app.html">📱 휴대폰 앱 데모</a><a href="widgets.html">🖥 위젯 데모</a>'
+    '<a href="https://github.com/ksdfs1/Weekly-Routine">GitHub 저장소</a></div>\n')
 
 # no backend, separate storage
 sub(r'  // Filled in once the Cloudflare Worker is deployed[^\n]*\n  var API_BASE = "[^"]*";\n',
