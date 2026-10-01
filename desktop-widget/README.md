@@ -24,7 +24,7 @@
 | Windows 시작 시 자동 실행 | 로그인할 때 자동으로 실행합니다(`HKCU\...\Run`에 등록). 처음 실행할 때 자동으로 켜집니다. |
 | 종료 | 위젯을 닫습니다. |
 
-기본 크기는 640×300입니다. 위치와 크기는 `%APPDATA%\WeeklyRoutineWidget\settings.json`에 저장됩니다.
+기본 크기는 550×300입니다. 위치와 크기는 `%APPDATA%\WeeklyRoutineWidget\settings.json`에 저장됩니다.
 
 ## 빌드
 

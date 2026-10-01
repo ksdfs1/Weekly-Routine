@@ -133,7 +133,7 @@
   - `?app=1`일 때만 안드로이드 앱의 `WRNative` 브리지를 흉내 내는 가짜 객체를 넣는다(설정은 메모리에만, 테스트 알림은 부모 페이지에 가짜 알림 배너, JSON 내보내기는 일반 다운로드).
   - 마지막에 결과물에 `workers.dev`나 본 앱의 저장 키가 남아 있으면 실패하고 파일을 쓰지 않는다.
 - `demo/app.html` — 휴대폰 앱 데모. 휴대폰 틀(상태바·내비게이션 바) 안에 `index.html?app=1`을 iframe으로 띄워, ⚙ 알림 패널까지 체험하게 한다.
-- `demo/widgets.html` — 위젯 데모. `index.html?view=widget`을 가짜 Windows 바탕화면(1280×720을 화면 폭에 맞게 축소, 640×300 / 321×304 크기 전환 버튼)과 가짜 휴대폰 홈 화면(4x2 자리)에 띄운다. 실제 안드로이드 위젯은 네이티브라 ◀ ▶ 등 세부가 다르다는 안내를 붙인다.
+- `demo/widgets.html` — 위젯 데모. `index.html?view=widget`을 가짜 Windows 바탕화면(1280×720을 화면 폭에 맞게 축소, 위젯은 기본 크기 550×300)과 가짜 휴대폰 홈 화면(4x2 자리)에 띄운다. 실제 안드로이드 위젯은 네이티브라 ◀ ▶ 등 세부가 다르다는 안내를 붙인다.
 - 데모 페이지끼리는 서로 링크하고, README에는 데모 주소만 싣는다(실제 앱 주소는 실제 루틴이 보이므로 싣지 않는다).
 
 ### 5.7 휴대폰 앱(PWA)
@@ -159,7 +159,7 @@
   - 앱 열기(트레이 메뉴, 위젯의 "앱 열기 ↗" 링크): 시작 메뉴·바탕화면에서 `Weekly Routine.lnk` 중 인수에 `--app-id=`가 있고 대상(chrome_proxy.exe/msedge_proxy.exe)이 존재하는 바로가기(크롬·엣지로 설치한 PWA)를 찾아 실행하고, 없거나 실행에 실패하면 기본 브라우저로 연다(`AppLauncher`).
   - 트레이 메뉴 항목: 위치·크기 조정(주황 테두리 + 드래그 띠), 새로고침, 앱 열기, 편집 토큰 설정…(페이지의 `localStorage`에 `ExecuteScriptAsync`로 넣음), 자동 실행(HKCU Run), 종료. 위젯을 우클릭해도 같은 메뉴가 뜬다.
   - 페이지의 `move`/`resize` 메시지를 받으면 `ReleaseCapture()` 후 `WM_NCLBUTTONDOWN`(`HTCAPTION` / `HTBOTTOMRIGHT`)을 보내 Windows의 이동·크기 조절을 시작한다. `ResizeEnd` 때마다 위치를 저장한다.
-  - 기본 크기는 640×300(예전 기본값 960×250, 1280×340으로 저장돼 있으면 새 기본값으로 바꾼다). 위치와 크기는 `%APPDATA%\WeeklyRoutineWidget\settings.json`에 저장한다.
+  - 기본 크기는 550×300이다. 위치와 크기는 `%APPDATA%\WeeklyRoutineWidget\settings.json`에 저장한다.
   - 처음 실행할 때 자동 실행을 켠다(`AutostartSetUp` 플래그). 이후에는 트레이 메뉴 설정을 따르고, 켜져 있으면 실행할 때마다 등록 경로를 현재 exe로 갱신한다.
   - Explorer가 재시작되면 창이 사라지는데, 3초 뒤 새로 연다.
 
