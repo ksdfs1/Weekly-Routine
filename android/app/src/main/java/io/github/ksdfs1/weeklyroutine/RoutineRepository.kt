@@ -1,6 +1,7 @@
 package io.github.ksdfs1.weeklyroutine
 
 import android.content.Context
+import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -14,15 +15,16 @@ object RoutineRepository {
     private const val CACHE_FILE = "state.json"
     private const val STALE_MS = 60 * 60 * 1000L
 
-    @Volatile private var memo: Pair<Long, Routine?>? = null
+    @Volatile private var memo: Triple<Long, String, Routine?>? = null
 
-    /** cached routine, or null if nothing was ever fetched (or the server has no data yet) */
+    /** cached routine with this device's case picks applied, or null if nothing was ever fetched */
     fun load(ctx: Context): Routine? {
         val f = File(ctx.filesDir, CACHE_FILE)
         if (!f.exists()) return null
-        memo?.let { if (it.first == f.lastModified()) return it.second }
-        val r = Routine.parse(f.readText())
-        memo = f.lastModified() to r
+        val overrides = Prefs.of(ctx).getString(Prefs.CASE_OVERRIDES, "") ?: ""
+        memo?.let { if (it.first == f.lastModified() && it.second == overrides) return it.third }
+        val r = Routine.parse(f.readText())?.withCaseOverrides(parseOverrides(overrides))
+        memo = Triple(f.lastModified(), overrides, r)
         return r
     }
 
@@ -32,24 +34,97 @@ object RoutineRepository {
 
     /** blocking — call off the main thread. Returns true when fresh data was stored. */
     fun fetch(ctx: Context): Boolean {
+        val body = get() ?: return false
+        if (Routine.parse(body) == null) return false   // "null" = nothing saved on the server yet
+        store(ctx, body)
+        return true
+    }
+
+    /* ---- picking a day's case from the widget ---- */
+
+    fun token(ctx: Context): String = Prefs.of(ctx).getString(Prefs.TOKEN, "")?.trim() ?: ""
+
+    /** applies the pick on this device right away; [saveCase] then tries to move it to the server */
+    fun setCaseOverride(ctx: Context, dayIndex: Int, caseId: String?) {
+        val p = Prefs.of(ctx)
+        val o = parseOverrides(p.getString(Prefs.CASE_OVERRIDES, "") ?: "").toMutableMap()
+        if (caseId == null) o.remove(dayIndex) else o[dayIndex] = caseId
+        val json = JSONObject().apply { o.forEach { (k, v) -> put(k.toString(), v) } }
+        p.edit().putString(Prefs.CASE_OVERRIDES, if (o.isEmpty()) "" else json.toString()).apply()
+    }
+
+    enum class SaveResult { SAVED, NO_TOKEN, BAD_TOKEN, FAILED }
+
+    /**
+     * blocking. Sets the day's case on top of the latest saved routine and saves it with the edit
+     * token; on success this device's override for that day is dropped (the server now agrees).
+     */
+    fun saveCase(ctx: Context, dayIndex: Int, caseId: String): SaveResult {
+        val token = token(ctx)
+        if (token.isEmpty()) return SaveResult.NO_TOKEN
+        val latest = get() ?: return SaveResult.FAILED
+        val body = try {
+            val o = JSONObject(latest)
+            o.getJSONArray("days").getJSONObject(dayIndex).put("activeCaseId", caseId)
+            o.toString()
+        } catch (e: Exception) {
+            return SaveResult.FAILED
+        }
+        val conn = URL("$API_BASE/state").openConnection() as HttpURLConnection
+        return try {
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            when (conn.responseCode) {
+                200 -> {
+                    store(ctx, body)
+                    // only if it wasn't changed again meanwhile
+                    if (parseOverrides(Prefs.of(ctx).getString(Prefs.CASE_OVERRIDES, "") ?: "")[dayIndex] == caseId)
+                        setCaseOverride(ctx, dayIndex, null)
+                    SaveResult.SAVED
+                }
+                401 -> SaveResult.BAD_TOKEN
+                else -> SaveResult.FAILED
+            }
+        } catch (e: Exception) {
+            SaveResult.FAILED
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun get(): String? {
         val conn = URL("$API_BASE/state").openConnection() as HttpURLConnection
         return try {
             conn.connectTimeout = 8000
             conn.readTimeout = 8000
             conn.useCaches = false
-            if (conn.responseCode != 200) return false
-            val body = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-            if (Routine.parse(body) == null) return false   // "null" = nothing saved on the server yet
-            val tmp = File(ctx.filesDir, "$CACHE_FILE.tmp")
-            tmp.writeText(body)
-            tmp.renameTo(File(ctx.filesDir, CACHE_FILE))
-            Prefs.of(ctx).edit().putLong(Prefs.LAST_SYNC, System.currentTimeMillis()).apply()
-            true
+            if (conn.responseCode != 200) return null
+            conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
         } catch (e: Exception) {
-            false
+            null
         } finally {
             conn.disconnect()
         }
+    }
+
+    private fun store(ctx: Context, body: String) {
+        val tmp = File(ctx.filesDir, "$CACHE_FILE.tmp")
+        tmp.writeText(body)
+        tmp.renameTo(File(ctx.filesDir, CACHE_FILE))
+        Prefs.of(ctx).edit().putLong(Prefs.LAST_SYNC, System.currentTimeMillis()).apply()
+    }
+
+    private fun parseOverrides(s: String): Map<Int, String> = try {
+        if (s.isEmpty()) emptyMap() else JSONObject(s).let { o ->
+            o.keys().asSequence().associate { it.toInt() to o.getString(it) }
+        }
+    } catch (e: Exception) {
+        emptyMap()
     }
 }
 
@@ -60,6 +135,8 @@ object Prefs {
     const val NOTIFY_GAPS = "notify_gaps"
     const val LAST_SYNC = "last_sync"
     const val LAST_KEY = "last_key"
+    const val TOKEN = "write_token"
+    const val CASE_OVERRIDES = "case_overrides"
 
     fun of(ctx: Context) = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
 }

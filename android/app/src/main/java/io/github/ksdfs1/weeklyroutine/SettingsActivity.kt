@@ -13,7 +13,9 @@ import android.provider.Settings
 import android.text.format.DateFormat
 import android.util.TypedValue
 import android.view.Gravity
+import android.text.InputType
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
@@ -78,6 +80,26 @@ class SettingsActivity : Activity() {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(RoutineRepository.APP_URL)))
         })
         col.addView(syncCard)
+
+        col.addView(section("위젯에서 케이스 선택"))
+        val tokenCard = card()
+        tokenCard.addView(text("위젯 위쪽의 '요일 · 케이스 ▾'를 누르면 오늘 케이스를 바꿀 수 있어요. 웹앱의 편집 토큰을 넣어두면 바꾼 케이스가 서버에 저장돼 웹앱·PC 위젯에도 똑같이 반영되고, 비워두면 이 기기에서만 적용돼요.", 12f, R.color.text_mute))
+        val tokenInput = EditText(this).apply {
+            setText(RoutineRepository.token(this@SettingsActivity))
+            hint = "편집 토큰"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            isSingleLine = true
+            textSize = 15f
+            setTextColor(getColor(R.color.text))
+            setHintTextColor(getColor(R.color.text_mute))
+        }
+        tokenCard.addView(tokenInput)
+        tokenCard.addView(button("토큰 저장") {
+            val t = tokenInput.text.toString().trim()
+            prefs.edit().putString(Prefs.TOKEN, t).apply()
+            toast(if (t.isEmpty()) "토큰을 지웠어요. 위젯에서 바꾼 케이스는 이 기기에만 적용돼요." else "토큰을 저장했어요")
+        })
+        col.addView(tokenCard)
 
         col.addView(text("홈 화면을 길게 누르고 위젯 → Weekly Routine → '오늘 루틴'(4x2)을 추가하세요.", 12f, R.color.text_mute).apply {
             setPadding(0, dp(16), 0, 0)

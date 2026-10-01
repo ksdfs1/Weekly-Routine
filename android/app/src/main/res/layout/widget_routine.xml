@@ -1,25 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- left 40%: current time over today's donut · right 60%: case picker, "지금" and today's blocks -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
-    android:gravity="center_vertical"
     android:orientation="horizontal"
     android:padding="10dp">
 
-    <ImageView
-        android:id="@+id/clock"
-        android:layout_width="96dp"
-        android:layout_height="96dp"
-        android:contentDescription="@string/widget_clock_desc"
-        android:scaleType="fitCenter" />
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="4"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextClock
+            android:id="@+id/time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFeatureSettings="tnum"
+            android:format12Hour="HH:mm"
+            android:format24Hour="HH:mm"
+            android:includeFontPadding="false"
+            android:textColor="@color/text"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/clock"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="4dp"
+            android:layout_weight="1"
+            android:contentDescription="@string/widget_clock_desc"
+            android:scaleType="fitCenter" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_marginStart="10dp"
-        android:layout_weight="1"
+        android:layout_weight="6"
         android:orientation="vertical">
 
         <LinearLayout
@@ -28,29 +50,34 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
+            <!-- tap to pick today's case -->
             <TextView
                 android:id="@+id/day_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:background="@drawable/widget_chip"
                 android:ellipsize="end"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
                 android:singleLine="true"
                 android:textColor="@color/text_dim"
                 android:textSize="12sp" />
 
             <ImageView
                 android:id="@+id/refresh"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:layout_marginStart="4dp"
                 android:contentDescription="@string/refresh"
-                android:padding="3dp"
+                android:padding="4dp"
                 android:src="@drawable/ic_refresh" />
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="4dp"
             android:orientation="horizontal">
 
             <ImageView

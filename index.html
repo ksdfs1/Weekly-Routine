@@ -140,6 +140,14 @@
   .legenditem{ display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--text-dim); }
   .legenditem .dur{ margin-left:auto; color:var(--text-mute); font-size:.76rem; }
   .now-line{ font-size:.8rem; color:var(--accent); font-weight:700; }
+  /* a clicked slice pops out (scaled about the clock's centre) and the others dim */
+  svg.clock .seg{ cursor:pointer; transform-box:view-box; transform-origin:50% 50%; transition:transform .25s ease, opacity .25s ease, filter .25s ease; }
+  svg.clock.has-sel .seg{ opacity:.3; filter:blur(.7px) saturate(.6); }
+  svg.clock.has-sel .seg.sel{ opacity:1; filter:drop-shadow(0 0 6px rgba(0,0,0,.55)); transform:scale(1.07); }
+  svg.clock .seg-label{ opacity:0; pointer-events:none; font-weight:700; fill:#fff; stroke:rgba(8,13,26,.8); paint-order:stroke; stroke-linejoin:round; transition:opacity .2s ease; }
+  svg.clock .seg.sel .seg-label{ opacity:1; }
+  svg.clock .c-sel, svg.clock.has-sel .c-def{ display:none; }
+  svg.clock.has-sel .c-sel{ display:inline; }
   /* "지금" bar: what the routine says you should be doing right now (today's active case) */
   .nowbar{ display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border-soft); border-left:4px solid var(--nowbar-color, var(--unassigned)); border-radius:14px; padding:10px 14px; }
   .nowbar-tag{ flex:0 0 auto; font-size:.72rem; font-weight:700; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:2px 8px; }
@@ -182,11 +190,11 @@
     .field.grow{ flex:1 1 auto; }
   }
   @media (prefers-reduced-motion:reduce){
-    .toast{ transition:none; }
+    .toast, svg.clock .seg, svg.clock .seg-label{ transition:none; }
   }
 
   /* ---- ?view=widget: compact week strip for the PC desktop widget (desktop-widget/) ---- */
-  html.widget{ scrollbar-gutter:auto; overflow:hidden; }
+  html.widget{ scrollbar-gutter:auto; overflow:hidden; font-size:clamp(13px, 1.15vw, 18px); }
   html.widget body{ background:var(--bg); overflow:hidden; }
   html.widget #app{ max-width:none; height:100%; padding:10px 12px; gap:8px; }
   html.widget .nowbar{ padding:6px 12px; border-radius:12px; flex:0 0 auto; }
@@ -199,7 +207,16 @@
   .wcard.today .wcard-label{ color:var(--accent); }
   .wcard-clock{ flex:1 1 auto; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; }
   .wcard-clock svg{ width:auto !important; height:100% !important; max-width:100%; max-height:100%; }
-  .wcard-case{ font-size:.66rem; color:var(--text-mute); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wcard-select{ width:100%; min-width:0; font-size:.68rem; padding:2px 4px; border-radius:6px; background:var(--surface-2); color:var(--text-dim); cursor:pointer; }
+  .wcard-select:hover{ border-color:var(--accent); color:var(--text); }
+  /* inside the desktop app (WebView2): a move handle and a resize grip that show on hover */
+  .whandle{ display:none; position:fixed; z-index:40; opacity:0; transition:opacity .2s ease; user-select:none; }
+  html.hosted .whandle{ display:block; }
+  html.hosted:hover .whandle{ opacity:1; }
+  .whandle.move{ top:4px; left:50%; transform:translateX(-50%); padding:1px 14px; border-radius:0 0 8px 8px; background:var(--surface-3); border:1px solid var(--border); border-top:none; color:var(--text-dim); font:600 11px/1.6 "IBM Plex Sans", system-ui, sans-serif; cursor:move; }
+  .whandle.move:hover{ color:var(--text); border-color:var(--accent); }
+  .whandle.grip{ right:1px; bottom:1px; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 0 55%, var(--text-mute) 55% 62%, transparent 62% 72%, var(--text-mute) 72% 79%, transparent 79%); }
+  .whandle.grip:hover{ background:linear-gradient(135deg, transparent 0 55%, var(--accent) 55% 62%, transparent 62% 72%, var(--accent) 72% 79%, transparent 79%); }
 </style>
 </head>
 <body>
@@ -217,6 +234,11 @@
   // ?view=widget renders only the "지금" bar + the week strip, for the PC desktop widget (desktop-widget/)
   var WIDGET_VIEW = /[?&]view=widget(&|$)/.test(location.search);
   if (WIDGET_VIEW) document.documentElement.classList.add('widget');
+  // set when the widget page runs inside the desktop app (desktop-widget/), which handles move/resize/menu
+  var HOST = WIDGET_VIEW && window.chrome && window.chrome.webview ? window.chrome.webview : null;
+  if (HOST) document.documentElement.classList.add('hosted');
+  // cases picked in the widget without an edit token: kept on this PC only, {dayKey: caseId}
+  var CASE_OVERRIDES_KEY = 'weekly-routine-case-overrides';
 
   /* ============== constants ============== */
   var DAY_DEFS = [
@@ -303,7 +325,8 @@
     caseDeleteArmed: false,
     refreshArmed: false,
     catDeleteArmedId: null,
-    tokenDialogOpen: false
+    tokenDialogOpen: false,
+    clockSel: null           // highlighted clock slice: {key:'dayKey|caseId', start:minute}
   };
   var dirty = false;
   var saving = false;
@@ -378,25 +401,61 @@
       +' L '+p3.x.toFixed(2)+' '+p3.y.toFixed(2)
       +' A '+rInner.toFixed(2)+' '+rInner.toFixed(2)+' 0 '+large+' 0 '+p4.x.toFixed(2)+' '+p4.y.toFixed(2)+' Z';
   }
+  // the desktop widget shows its clocks small, so it uses a slightly tighter ring and larger text
+  var CLOCK_BIG = WIDGET_VIEW;
+  function clockCenterName(name){
+    var max = CLOCK_BIG ? 5 : 8;
+    return name.length > max ? name.slice(0,max-1)+'…' : name;
+  }
+  // one slice of the ring; clicking it highlights it (see selectClockSeg)
+  function segInfo(seg){
+    var cat = seg.catId ? catById(seg.catId) : null;
+    var name = seg.catId ? (cat ? cat.name : '?') : '미지정';
+    return {
+      name: name,
+      color: seg.catId ? (cat && cat.color) || 'var(--unassigned)' : 'var(--unassigned)',
+      textColor: seg.catId && cat ? cat.color : 'var(--text)',   // the unassigned navy is unreadable as text
+      memo: seg.label && seg.label !== name ? seg.label : '',
+      time: fmtMin(seg.start)+'–'+fmtMin(seg.end)
+    };
+  }
   function renderClockSVG(day, c, size, showNow){
+    var big = CLOCK_BIG;
     var cx = size/2, cy = size/2;
-    var rOuter = size*0.42, rInner = size*0.26;
+    var rOuter = size*(big?0.38:0.42), rInner = size*(big?0.23:0.26);
+    var key = day.key+'|'+c.id;
+    var sel = ui.clockSel && ui.clockSel.key === key ? ui.clockSel.start : null;
+    var selInfo = null;
     var blocks = sortedBlocks(c);
     var segs = segmentsWithGaps(blocks);
-    var parts = [];
+    var parts = [], segParts = [], selPart = '';
     parts.push('<circle cx="'+cx+'" cy="'+cy+'" r="'+(rOuter+1.5)+'" fill="none" stroke="var(--border-soft)" stroke-width="1"></circle>');
     segs.forEach(function(seg){
-      var color = seg.catId ? (catById(seg.catId)||{}).color || 'var(--unassigned)' : 'var(--unassigned)';
-      parts.push('<path d="'+donutPath(cx,cy,rOuter,rInner,seg.start,seg.end)+'" fill="'+color+'" stroke="var(--gap-ring)" stroke-width="1.5"></path>');
+      if (seg.end <= seg.start) return;   // swallowed by an overlapping block
+      var info = segInfo(seg);
+      var lp = polar(cx,cy,(rOuter+rInner)/2,(seg.start+seg.end)/2);
+      var g = '<g class="seg'+(seg.start===sel?' sel':'')+'" data-start="'+seg.start+'" data-end="'+seg.end+'" data-name="'+esc(info.name)+'" data-memo="'+esc(info.memo)+'" data-color="'+esc(info.textColor)+'">'
+        + '<title>'+esc(info.name+(info.memo?' · '+info.memo:'')+' '+info.time)+'</title>'
+        + '<path d="'+donutPath(cx,cy,rOuter,rInner,seg.start,seg.end)+'" fill="'+info.color+'" stroke="var(--gap-ring)" stroke-width="1.5"></path>'
+        + '<text class="seg-label" x="'+lp.x.toFixed(2)+'" y="'+lp.y.toFixed(2)+'" text-anchor="middle" dominant-baseline="central" font-size="'+(size*(big?0.058:0.045)).toFixed(2)+'" stroke-width="'+(size*0.012).toFixed(2)+'" font-family="Sora, sans-serif">'+esc(info.name)+'</text>'
+        + '</g>';
+      // the highlighted slice goes last so it is drawn over its neighbours
+      if (seg.start === sel){ selPart = g; selInfo = info; } else segParts.push(g);
     });
+    parts.push('<g class="segs">'+segParts.join('')+selPart+'</g>');
     for (var h=0; h<24; h++){
       var maj = h % 3 === 0;
       var p0 = polar(cx,cy,rOuter+2,h*60);
-      var p1 = polar(cx,cy,rOuter + (maj? size*0.045 : size*0.022), h*60);
+      var p1 = polar(cx,cy,rOuter + (maj? size*(big?0.035:0.045) : size*(big?0.017:0.022)), h*60);
       parts.push('<line x1="'+p0.x.toFixed(2)+'" y1="'+p0.y.toFixed(2)+'" x2="'+p1.x.toFixed(2)+'" y2="'+p1.y.toFixed(2)+'" stroke="var(--text-mute)" stroke-width="'+(maj?1.6:1)+'" stroke-linecap="round"></line>');
       if (maj){
-        var lp = polar(cx,cy,rOuter+size*0.10,h*60);
-        parts.push('<text x="'+lp.x.toFixed(2)+'" y="'+(lp.y+4).toFixed(2)+'" text-anchor="middle" font-size="'+(size*0.032)+'" fill="var(--text-mute)" font-family="IBM Plex Sans, sans-serif">'+h+'</text>');
+        if (big){
+          var bp = polar(cx,cy,rOuter+size*0.075,h*60);
+          parts.push('<text x="'+bp.x.toFixed(2)+'" y="'+bp.y.toFixed(2)+'" text-anchor="middle" dominant-baseline="central" font-size="'+(size*0.05)+'" fill="var(--text-mute)" font-family="IBM Plex Sans, sans-serif">'+h+'</text>');
+        } else {
+          var lp = polar(cx,cy,rOuter+size*0.10,h*60);
+          parts.push('<text x="'+lp.x.toFixed(2)+'" y="'+(lp.y+4).toFixed(2)+'" text-anchor="middle" font-size="'+(size*0.032)+'" fill="var(--text-mute)" font-family="IBM Plex Sans, sans-serif">'+h+'</text>');
+        }
       }
     }
     if (showNow){
@@ -409,21 +468,65 @@
       parts.push('<circle cx="'+ip.x.toFixed(2)+'" cy="'+ip.y.toFixed(2)+'" r="4" fill="var(--accent)"></circle>');
     }
     // today's clock shows what should be happening now in the middle; other days show day + case
-    var centerTop = day.short+'요일', centerSub = c.name, centerColor = 'var(--text)', ariaNow = '';
+    // (in the widget the case name sits under each clock, so other days only show the day)
+    var centerTop = day.short+'요일', centerSub = big ? '' : c.name, centerColor = 'var(--text)', ariaNow = '';
     if (showNow){
       var st = nowStatus();
       var nm = nowStatusName(st);
-      centerTop = nm.length > 8 ? nm.slice(0,7)+'…' : nm;
+      centerTop = clockCenterName(nm);
       centerSub = fmtDur(st.remaining)+' 남음';
       if (st.cur && st.cat) centerColor = st.cat.color;
       ariaNow = ', 지금 '+nm+' '+centerSub;
     }
-    var centerLines = [
-      '<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" font-size="'+(size*0.062)+'" font-weight="800" fill="'+centerColor+'" font-family="Sora, sans-serif">'+esc(centerTop)+'</text>',
-      '<text x="'+cx+'" y="'+(cy+16)+'" text-anchor="middle" font-size="'+(size*0.036)+'" fill="var(--text-mute)" font-family=\'IBM Plex Sans, sans-serif\'>'+esc(centerSub)+'</text>'
-    ];
-    return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="max-width:100%;height:auto;display:block;" role="img" aria-label="'+esc(day.label+' '+c.name+' 24시간 루틴'+ariaNow)+'">'
-      + parts.join('') + centerLines.join('') + '</svg>';
+    var topF = size*(big?0.10:0.062), subF = size*(big?0.062:0.036);
+    var topY = cy + size*(big?0.01:-0.018), subY = cy + size*(big?0.09:0.047), memoY = subY + subF*1.3;
+    var textAt = function(cls, y, font, fill, weight, family, s){
+      return '<text class="'+cls+'" x="'+cx+'" y="'+y.toFixed(2)+'" text-anchor="middle" font-size="'+font.toFixed(2)+'"'+(weight?' font-weight="'+weight+'"':'')+' fill="'+fill+'" font-family="'+family+'">'+esc(s)+'</text>';
+    };
+    var center = '<g class="c-def">'
+      + textAt('', topY, topF, centerColor, 800, 'Sora, sans-serif', centerTop)
+      + textAt('', subY, subF, 'var(--text-mute)', 0, 'IBM Plex Sans, sans-serif', centerSub)
+      + '</g>'
+      // filled in for the highlighted slice (here when re-rendering, in selectClockSeg when clicked)
+      + '<g class="c-sel">'
+      + textAt('c-sel-name', topY, topF, selInfo ? selInfo.textColor : 'var(--text)', 800, 'Sora, sans-serif', selInfo ? clockCenterName(selInfo.name) : '')
+      + textAt('c-sel-time', subY, subF, 'var(--text-dim)', 600, 'IBM Plex Sans, sans-serif', selInfo ? selInfo.time : '')
+      + textAt('c-sel-memo', memoY, subF*0.92, 'var(--text-mute)', 0, 'IBM Plex Sans, sans-serif', selInfo ? clockCenterName(selInfo.memo) : '')
+      + '</g>';
+    return '<svg class="clock'+(selInfo?' has-sel':'')+'" data-key="'+esc(key)+'" viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="max-width:100%;height:auto;display:block;" role="img" aria-label="'+esc(day.label+' '+c.name+' 24시간 루틴'+ariaNow)+'">'
+      + parts.join('') + center + '</svg>';
+  }
+
+  /* click a slice: it pops out with its name on it, the rest dims, and the middle shows its time.
+     Clicking it again (or the empty middle) puts the clock back. One highlighted slice at a time. */
+  function selectClockSeg(svg, g){
+    Array.prototype.forEach.call(document.querySelectorAll('svg.clock.has-sel'), function(other){
+      if (other === svg) return;
+      other.classList.remove('has-sel');
+      var s = other.querySelector('.seg.sel'); if (s) s.classList.remove('sel');
+    });
+    var cur = svg.querySelector('.seg.sel');
+    if (cur) cur.classList.remove('sel');
+    if (!g || g === cur){ svg.classList.remove('has-sel'); ui.clockSel = null; return; }
+    g.parentNode.appendChild(g);   // draw it over its neighbours
+    void g.getBoundingClientRect(); // re-attached node: let it settle first so the pop-out animates
+    g.classList.add('sel');
+    svg.classList.add('has-sel');
+    ui.clockSel = {key: svg.getAttribute('data-key'), start: parseInt(g.getAttribute('data-start'),10)};
+    var start = ui.clockSel.start, end = parseInt(g.getAttribute('data-end'),10);
+    var nameEl = svg.querySelector('.c-sel-name');
+    nameEl.textContent = clockCenterName(g.getAttribute('data-name'));
+    nameEl.setAttribute('fill', g.getAttribute('data-color'));
+    svg.querySelector('.c-sel-time').textContent = fmtMin(start)+'–'+fmtMin(end);
+    svg.querySelector('.c-sel-memo').textContent = clockCenterName(g.getAttribute('data-memo') || '');
+  }
+  function clearClockSel(){
+    if (!ui.clockSel) return;
+    ui.clockSel = null;
+    Array.prototype.forEach.call(document.querySelectorAll('svg.clock.has-sel'), function(svg){
+      svg.classList.remove('has-sel');
+      var s = svg.querySelector('.seg.sel'); if (s) s.classList.remove('sel');
+    });
   }
 
   /* ============== render ============== */
@@ -475,13 +578,17 @@
   }
 
   function renderWidget(){
+    applyCaseOverrides();
     var cards = state.days.map(function(day, i){
       var c = activeCase(day);
       var today = isTodayIndex(i);
+      var options = day.cases.map(function(cs){
+        return '<option value="'+cs.id+'"'+(cs.id===c.id?' selected':'')+'>'+esc(cs.name)+'</option>';
+      }).join('');
       return '<div class="wcard'+(today?' today':'')+'">'
         + '<span class="wcard-label">'+esc(day.short)+(today?' · 오늘':'')+'</span>'
         + '<div class="wcard-clock">'+renderClockSVG(day, c, 200, today)+'</div>'
-        + '<span class="wcard-case" title="'+esc(c.name)+'">'+esc(c.name)+'</span>'
+        + '<select class="wcard-select" data-action="widget-set-case" data-day-index="'+i+'" title="'+esc(c.name)+'">'+options+'</select>'
         + '</div>';
     }).join('');
     app.innerHTML = nowStatusHtml() + '<div class="wgrid">' + cards + '</div>';
@@ -583,6 +690,60 @@
       items.push('<div class="legenditem"><span class="swatch" style="background:var(--unassigned)"></span>미지정<span class="dur tabular">'+fmtDur(gapTotal)+'</span></div>');
     }
     return items.join('');
+  }
+
+  /* ---- widget: picking a case ----
+     With the edit token on this PC it is saved to the server (so every device follows);
+     without one it is kept on this PC only and wins over the server's choice for that day. */
+  function caseOverrides(){
+    try{ return JSON.parse(localStorage.getItem(CASE_OVERRIDES_KEY) || '{}') || {}; }catch(e){ return {}; }
+  }
+  function setCaseOverride(dayKey, caseId){
+    var o = caseOverrides();
+    if (caseId) o[dayKey] = caseId; else delete o[dayKey];
+    try{ localStorage.setItem(CASE_OVERRIDES_KEY, JSON.stringify(o)); }catch(e){}
+  }
+  function applyCaseOverrides(){
+    var o = caseOverrides();
+    state.days.forEach(function(d){
+      var id = o[d.key];
+      if (id && d.cases.some(function(cs){ return cs.id === id; })) d.activeCaseId = id;
+    });
+  }
+  async function widgetSetCase(dayIndex, caseId){
+    var dayKey = state.days[dayIndex].key;
+    state.days[dayIndex].activeCaseId = caseId;
+    setCaseOverride(dayKey, caseId);   // shows right away, and sticks if the save below fails
+    renderApp();
+    if (!canWrite){ toast('이 PC에만 적용했어요. 편집 토큰을 넣으면 모든 기기에 반영돼요.'); return; }
+    var token = '';
+    try{ token = localStorage.getItem(TOKEN_KEY) || ''; }catch(e){}
+    try{
+      // change only this day's case on top of the latest saved routine, not on our possibly older copy
+      var res = await fetch(API_BASE + '/state', {cache:'no-store'});
+      var latest = res.ok ? await res.json() : null;
+      if (!latest || !latest.days || !latest.days[dayIndex]) throw new Error('no state');
+      latest.days[dayIndex].activeCaseId = caseId;
+      var post = await fetch(API_BASE + '/state', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+token},
+        body: JSON.stringify(latest)
+      });
+      if (post.status === 401){
+        try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+        canWrite = false;
+        toast('편집 토큰이 올바르지 않아 이 PC에만 적용했어요.');
+        return;
+      }
+      if (!post.ok) throw new Error('HTTP '+post.status);
+      state = latest;
+      cacheLocally();
+      setCaseOverride(dayKey, null);
+      renderApp();
+      toast('저장했어요. 모든 기기에 반영돼요.');
+    }catch(e){
+      toast('서버에 저장하지 못해 이 PC에만 적용했어요.');
+    }
   }
 
   function setCaseForDay(dayIndex, caseId){
@@ -1009,6 +1170,12 @@
   app_root_listeners();
   function app_root_listeners(){
     document.addEventListener('click', function(ev){
+      var clock = ev.target.closest('svg.clock');
+      if (clock){
+        if (Date.now() - lastDragAt > 300) selectClockSeg(clock, ev.target.closest('.seg'));
+        return;
+      }
+      clearClockSel();
       var el = ev.target.closest('[data-action]');
       if (!el) return;
       var action = el.dataset.action;
@@ -1035,6 +1202,7 @@
       var t = ev.target;
       if (t.matches && t.matches('[data-action="set-case"]')) setCase(t.value);
       else if (t.matches && t.matches('[data-action="set-case-for-day"]')) setCaseForDay(parseInt(t.dataset.dayIndex,10), t.value);
+      else if (t.matches && t.matches('[data-action="widget-set-case"]')) widgetSetCase(parseInt(t.dataset.dayIndex,10), t.value);
       else if (t.matches && t.matches('[data-action="cat-color"]')) setCatColor(t.dataset.catId, t.value);
       else if (t.id === 'import-file' && t.files && t.files[0]) handleImportFile(t.files[0]);
       else if (t.id === 'edit-toggle') toggleEditMode();
@@ -1063,6 +1231,7 @@
 
   /* drag-to-scroll the weekly day strip with the mouse (touch scrolls natively) */
   var dragScroll = null;
+  var lastDragAt = 0;   // a drag/swipe that ends on a clock shouldn't also count as clicking a slice
   document.addEventListener('mousedown', function(ev){
     var grid = ev.target.closest('#daygrid');
     if (!grid) return;
@@ -1081,6 +1250,7 @@
     }
   });
   function endDragScroll(){
+    if (dragScroll && dragScroll.moved) lastDragAt = Date.now();
     if (dragScroll && dragScroll.grid) dragScroll.grid.classList.remove('dragging');
     dragScroll = null;
   }
@@ -1100,12 +1270,30 @@
     var dx = ev.clientX - swipeState.startX;
     var dy = ev.clientY - swipeState.startY;
     swipeState = null;
+    if (Math.abs(dx) > 10) lastDragAt = Date.now();
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5){
       var dir = dx < 0 ? 1 : -1; // swipe left -> next day, swipe right -> previous day
       setDay((ui.dayIndex + dir + 7) % 7);
     }
   });
   document.addEventListener('pointercancel', function(){ swipeState = null; });
+
+  /* desktop app: drag the top handle to move, the corner grip to resize, right-click for its menu */
+  if (HOST){
+    document.body.insertAdjacentHTML('beforeend',
+      '<div class="whandle move" data-host="move" title="끌어서 위젯 이동 · 우클릭하면 메뉴">⠿ 이동</div>'
+      + '<div class="whandle grip" data-host="resize" title="끌어서 크기 조절"></div>');
+    document.addEventListener('mousedown', function(ev){
+      var h = ev.button === 0 && ev.target.closest('[data-host]');
+      if (!h) return;
+      ev.preventDefault();
+      HOST.postMessage(h.getAttribute('data-host'));
+    });
+    document.addEventListener('contextmenu', function(ev){
+      ev.preventDefault();
+      HOST.postMessage('menu');
+    });
+  }
 
   /* ============== boot ============== */
   renderApp();

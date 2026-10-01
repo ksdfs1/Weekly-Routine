@@ -29,6 +29,7 @@ static class Program
 sealed class WidgetContext : ApplicationContext
 {
     readonly NotifyIcon tray;
+    readonly ContextMenuStrip menu;
     readonly ToolStripMenuItem adjustItem;
     readonly ToolStripMenuItem autostartItem;
     readonly Settings settings = Settings.Load();
@@ -37,15 +38,25 @@ sealed class WidgetContext : ApplicationContext
 
     public WidgetContext()
     {
+        // start with Windows unless the user has turned it off; also keeps the registered path
+        // pointing at this exe if it was moved
+        try
+        {
+            if (!settings.AutostartSetUp) { Autostart.Set(true); settings.AutostartSetUp = true; settings.Save(); }
+            else if (Autostart.IsEnabled()) Autostart.Set(true);
+        }
+        catch { /* registry blocked: the tray menu shows it as off */ }
+
         adjustItem = new ToolStripMenuItem("위치·크기 조정", null, (_, _) => ToggleAdjust());
         autostartItem = new ToolStripMenuItem("Windows 시작 시 자동 실행", null, (_, _) => ToggleAutostart())
         {
             Checked = Autostart.IsEnabled()
         };
-        var menu = new ContextMenuStrip();
+        menu = new ContextMenuStrip();
         menu.Items.Add(adjustItem);
         menu.Items.Add("새로고침", null, (_, _) => form?.Reload());
         menu.Items.Add("브라우저에서 앱 열기", null, (_, _) => Browser.Open(Program.AppUrl));
+        menu.Items.Add("편집 토큰 설정…", null, (_, _) => form?.EditToken());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(autostartItem);
         menu.Items.Add(new ToolStripSeparator());
@@ -72,6 +83,7 @@ sealed class WidgetContext : ApplicationContext
     void OpenForm()
     {
         form = new WidgetForm(settings);
+        form.MenuRequested += () => menu.Show(Cursor.Position);   // right-click on the widget
         form.FormClosed += (_, _) =>
         {
             adjustItem.Checked = false;

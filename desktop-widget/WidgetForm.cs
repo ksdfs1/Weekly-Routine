@@ -5,7 +5,8 @@ using Microsoft.Web.WebView2.WinForms;
 namespace WeeklyRoutineWidget;
 
 /// Borderless window showing the widget page. Normally it sits at the very bottom of the z-order,
-/// owned by the desktop window so "show desktop" (Win+D) doesn't hide it. In adjust mode it grows
+/// owned by the desktop window so "show desktop" (Win+D) doesn't hide it. The page has a hover
+/// move handle and resize grip that message us (see HOST in index.html); adjust mode also grows
 /// an orange frame (drag the edges to resize) and a title strip (drag to move).
 sealed class WidgetForm : Form
 {
@@ -17,6 +18,9 @@ sealed class WidgetForm : Form
     readonly WebView2 web = new() { Dock = DockStyle.Fill };
     readonly Label dragStrip;
     bool adjusting;
+
+    /// the page was right-clicked: show the tray menu there
+    public event Action? MenuRequested;
 
     public WidgetForm(Settings settings)
     {
@@ -50,6 +54,7 @@ sealed class WidgetForm : Form
         };
         Controls.Add(web);
         Controls.Add(dragStrip);
+        ResizeEnd += (_, _) => SaveBounds();   // after any move/resize, however it was started
     }
 
     protected override CreateParams CreateParams
@@ -98,10 +103,49 @@ sealed class WidgetForm : Form
             var widgetOrigin = new Uri(Program.WidgetUrl).GetLeftPart(UriPartial.Path);
             if (!a.Uri.StartsWith(widgetOrigin, StringComparison.OrdinalIgnoreCase)) { a.Cancel = true; Browser.Open(a.Uri); }
         };
+        core.WebMessageReceived += (_, a) =>
+        {
+            string msg;
+            try { msg = a.TryGetWebMessageAsString(); } catch (ArgumentException) { return; }
+            // the mouse button is still down: hand the drag over to Windows' own move/size loop
+            if (msg == "move") BeginSystemDrag(Native.HTCAPTION);
+            else if (msg == "resize") BeginSystemDrag(Native.HTBOTTOMRIGHT_I);
+            else if (msg == "menu") MenuRequested?.Invoke();
+        };
         core.Navigate(Program.WidgetUrl);
     }
 
+    void BeginSystemDrag(int hit)
+    {
+        Native.ReleaseCapture();
+        Native.SendMessage(Handle, Native.WM_NCLBUTTONDOWN, hit, 0);
+    }
+
     public void Reload() => web.CoreWebView2?.Reload();
+
+    /// the page keeps the edit token in its localStorage, like the web app; with it, cases picked
+    /// in the widget are saved to the server
+    public async void EditToken()
+    {
+        var core = web.CoreWebView2;
+        if (core == null) return;
+        string current = "";
+        try
+        {
+            var json = await core.ExecuteScriptAsync("localStorage.getItem('" + TokenKey + "')");
+            current = System.Text.Json.JsonSerializer.Deserialize<string?>(json) ?? "";
+        }
+        catch { /* page not loaded yet: start empty */ }
+        using var dlg = new TokenDialog(current);
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+        var token = dlg.Token;
+        var script = token.Length == 0
+            ? "localStorage.removeItem('" + TokenKey + "')"
+            : "localStorage.setItem('" + TokenKey + "', " + System.Text.Json.JsonSerializer.Serialize(token) + ")";
+        await core.ExecuteScriptAsync("try{" + script + "}catch(e){}; location.reload();");
+    }
+
+    const string TokenKey = "weekly-routine-write-token";   // TOKEN_KEY in index.html
 
     public void SetAdjustMode(bool on)
     {
@@ -194,7 +238,7 @@ sealed class WidgetForm : Form
 static class Native
 {
     public const int WM_NCHITTEST = 0x0084, WM_NCLBUTTONDOWN = 0x00A1, WM_WINDOWPOSCHANGING = 0x0046;
-    public const int HTCAPTION = 2;
+    public const int HTCAPTION = 2, HTBOTTOMRIGHT_I = 17;
     public static readonly IntPtr HTLEFT = 10, HTRIGHT = 11, HTTOP = 12, HTTOPLEFT = 13, HTTOPRIGHT = 14,
         HTBOTTOM = 15, HTBOTTOMLEFT = 16, HTBOTTOMRIGHT = 17;
     public const int WS_EX_TOOLWINDOW = 0x00000080;
@@ -217,4 +261,41 @@ static class Native
     [DllImport("user32.dll")] public static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int index, IntPtr value);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+}
+
+/// small "편집 토큰" prompt for the tray menu
+sealed class TokenDialog : Form
+{
+    readonly TextBox box;
+    public string Token => box.Text.Trim();
+
+    public TokenDialog(string current)
+    {
+        Text = "편집 토큰 설정";
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        MaximizeBox = MinimizeBox = false;
+        StartPosition = FormStartPosition.CenterScreen;
+        TopMost = true;
+        AutoScaleMode = AutoScaleMode.Font;
+        Font = new Font("Segoe UI", 9.5f);
+        ClientSize = new Size(420, 150);
+        Padding = new Padding(14);
+
+        var hint = new Label
+        {
+            Dock = DockStyle.Top, Height = 54,
+            Text = "웹앱의 편집 토큰을 넣으면 위젯에서 바꾼 케이스가 서버에 저장돼 모든 기기에 반영돼요.\n비우고 확인을 누르면 토큰을 지우고, 케이스는 이 PC에만 적용돼요."
+        };
+        box = new TextBox { Dock = DockStyle.Top, Text = current, UseSystemPasswordChar = true };
+        var ok = new Button { Text = "확인", DialogResult = DialogResult.OK, Width = 88 };
+        var cancel = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Width = 88 };
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 36 };
+        buttons.Controls.Add(cancel);
+        buttons.Controls.Add(ok);
+        Controls.Add(box);
+        Controls.Add(hint);
+        Controls.Add(buttons);
+        AcceptButton = ok;
+        CancelButton = cancel;
+    }
 }

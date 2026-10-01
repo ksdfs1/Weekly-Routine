@@ -58,6 +58,12 @@ class RoutineWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             ))
 
+            v.setOnClickPendingIntent(R.id.day_title, PendingIntent.getActivity(
+                ctx, 2,
+                Intent(ctx, CasePickerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            ))
+
             val routine = RoutineRepository.load(ctx)
             if (routine == null) {
                 v.setTextViewText(R.id.day_title, "Weekly Routine")
@@ -71,7 +77,7 @@ class RoutineWidgetProvider : AppWidgetProvider() {
             val now = Calendar.getInstance()
             val day = routine.days[Routine.dayIndex(now)]
             val st = routine.nowStatus(now)
-            v.setTextViewText(R.id.day_title, day.label + " · " + (day.activeCase?.name ?: ""))
+            v.setTextViewText(R.id.day_title, day.short + " · " + (day.activeCase?.name ?: "") + " ▾")
 
             val memo = st.cur?.label?.takeIf { it.isNotBlank() && it != st.name }
             v.setTextViewText(R.id.now_title, st.name + (memo?.let { " · $it" } ?: ""))
@@ -83,7 +89,8 @@ class RoutineWidgetProvider : AppWidgetProvider() {
             v.setTextViewText(R.id.now_sub, sub)
             v.setInt(R.id.now_bar, "setBackgroundColor", st.cat?.color ?: Routine.UNASSIGNED)
 
-            val px = (96 * ctx.resources.displayMetrics.density).toInt().coerceIn(96, 320)
+            // the left 40% column is roughly 120–200dp wide; draw at its upper end and let it scale down
+            val px = (180 * ctx.resources.displayMetrics.density).toInt().coerceIn(180, 560)
             v.setImageViewBitmap(R.id.clock, ClockRenderer.render(routine, day, st, px))
             v.setViewVisibility(R.id.clock, View.VISIBLE)
 

@@ -36,6 +36,15 @@ class Routine(val categories: List<Category>, val days: List<Day>) {
 
     fun category(id: String?): Category? = categories.firstOrNull { it.id == id }
 
+    /** cases picked on this device only ({dayIndex: caseId}); ids the day doesn't have are ignored */
+    fun withCaseOverrides(overrides: Map<Int, String>): Routine {
+        if (overrides.isEmpty()) return this
+        return Routine(categories, days.mapIndexed { i, d ->
+            val id = overrides[i]
+            if (id != null && d.cases.any { it.id == id }) d.copy(activeCaseId = id) else d
+        })
+    }
+
     fun nowStatus(now: Calendar = Calendar.getInstance()): NowStatus {
         val nowMin = minuteOfDay(now)
         val ti = dayIndex(now)
