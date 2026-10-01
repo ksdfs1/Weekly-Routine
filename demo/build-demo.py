@@ -76,8 +76,12 @@ sub(r'</head>', FAKE_BRIDGE)
 # banner on the normal demo page (not inside the widget view or the phone frame)
 sub(r'(\.toast\.show\{[^\n]*\n)',
     r'\1  .demo-banner{ background:#182545; color:#eef1fb; font-size:.78rem; text-align:center; padding:9px 12px; border-bottom:1px solid #28365a; font-family:"IBM Plex Sans",system-ui,sans-serif; }\n'
+    r'  .demo-banner a{ display:inline-block; margin:2px 0 0 6px; color:#241505; background:#f5b95c; font-weight:700; text-decoration:none; border-radius:999px; padding:2px 10px; white-space:nowrap; }\n'
+    r'  .demo-banner a:hover{ background:#ffd08a; }\n'
     r'  html.widget .demo-banner, html.native .demo-banner{ display:none; }\n')
-sub(r'<body>\n', '<body>\n<div class="demo-banner">🧪 데모 페이지입니다 — 예시 데이터만 보여주며, 이 화면에서의 변경사항은 어디에도 저장되지 않습니다.</div>\n')
+# the banner also links to the other demos (phone app, widgets)
+sub(r'<body>\n', '<body>\n<div class="demo-banner">🧪 데모 페이지입니다 — 예시 데이터만 보여주며, 이 화면에서의 변경사항은 어디에도 저장되지 않습니다.'
+    '<a href="app.html">📱 휴대폰 앱 데모</a><a href="widgets.html">🖥 위젯 데모</a></div>\n')
 
 # no backend, separate storage
 sub(r'  // Filled in once the Cloudflare Worker is deployed[^\n]*\n  var API_BASE = "[^"]*";\n',
