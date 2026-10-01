@@ -5,4 +5,6 @@
     <string name="widget_description">오늘 루틴과 지금 할 일을 보여줘요</string>
     <string name="widget_clock_desc">오늘 24시간 루틴 시계</string>
     <string name="refresh">새로고침</string>
+    <string name="prev_day">이전 요일</string>
+    <string name="next_day">다음 요일</string>
 </resources>

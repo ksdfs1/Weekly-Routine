@@ -28,6 +28,9 @@ data class NowStatus(
     val end: Int,
 ) {
     val name: String get() = if (cur != null) (cat?.name ?: "?") else "미지정 시간"
+    /** minutes until this state ends — for a gap, until the next block (tomorrow's first if need be) */
+    fun remaining(nowMin: Int): Int =
+        if (cur == null && nextTomorrow && next != null) 1440 + next.start - nowMin else end - nowMin
     /** identifies "what you're doing" — two back-to-back blocks with the same key are one state */
     val key: String get() = if (cur != null) "${cur.catId}|${cur.label}" else "gap"
 }
@@ -130,6 +133,17 @@ class Routine(val categories: List<Category>, val days: List<Day>) {
             }
             if (cursor < 1440) segs += Segment(cursor, 1440, null)
             return segs
+        }
+
+        /** "1시간 20분", like fmtDur in index.html */
+        fun fmtDur(min: Int): String {
+            val h = min / 60
+            val m = min % 60
+            return when {
+                h > 0 && m > 0 -> "${h}시간 ${m}분"
+                h > 0 -> "${h}시간"
+                else -> "${m}분"
+            }
         }
 
         fun fmtMin(min: Int): String {

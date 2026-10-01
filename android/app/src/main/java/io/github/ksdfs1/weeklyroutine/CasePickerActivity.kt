@@ -18,7 +18,7 @@ import androidx.work.workDataOf
 import java.util.Calendar
 
 /**
- * Opened by tapping the "요일 · 케이스 ▾" pill on the widget: a small list of today's cases.
+ * Opened by tapping the "요일 · 케이스 ▾" pill on the widget: a small list of the shown day's cases.
  * The pick shows on this device at once; with an edit token it is then saved to the server
  * (CaseSaveWorker) so the web app and the PC widget follow.
  */
@@ -32,7 +32,7 @@ class CasePickerActivity : Activity() {
             finish()
             return
         }
-        val dayIndex = Routine.dayIndex(Calendar.getInstance())
+        val dayIndex = intent.getIntExtra(EXTRA_DAY, Routine.dayIndex(Calendar.getInstance())).coerceIn(0, 6)
         val day = routine.days[dayIndex]
         val cases = day.cases
         val checked = cases.indexOfFirst { it.id == day.activeCase?.id }
@@ -46,6 +46,10 @@ class CasePickerActivity : Activity() {
             .setNegativeButton("취소", null)
             .setOnDismissListener { finish() }
             .show()
+    }
+
+    companion object {
+        const val EXTRA_DAY = "day"
     }
 
     private fun pick(dayIndex: Int, caseId: String) {

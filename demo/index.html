@@ -138,8 +138,6 @@
   svg.clock .seg{ cursor:pointer; transform-box:view-box; transform-origin:50% 50%; transition:transform .25s ease, opacity .25s ease, filter .25s ease; }
   svg.clock.has-sel .seg{ opacity:.3; filter:blur(.7px) saturate(.6); }
   svg.clock.has-sel .seg.sel{ opacity:1; filter:drop-shadow(0 0 6px rgba(0,0,0,.55)); transform:scale(1.07); }
-  svg.clock .seg-label{ opacity:0; pointer-events:none; font-weight:700; fill:#fff; stroke:rgba(8,13,26,.8); paint-order:stroke; stroke-linejoin:round; transition:opacity .2s ease; }
-  svg.clock .seg.sel .seg-label{ opacity:1; }
   svg.clock .c-sel, svg.clock.has-sel .c-def{ display:none; }
   svg.clock.has-sel .c-sel{ display:inline; }
   /* "지금" bar: what the routine says you should be doing right now (today's active case) */
@@ -184,7 +182,7 @@
     .field.grow{ flex:1 1 auto; }
   }
   @media (prefers-reduced-motion:reduce){
-    .toast, svg.clock .seg, svg.clock .seg-label{ transition:none; }
+    .toast, svg.clock .seg{ transition:none; }
   }
 </style>
 </head>
@@ -400,11 +398,9 @@
     segs.forEach(function(seg){
       if (seg.end <= seg.start) return;   // swallowed by an overlapping block
       var info = segInfo(seg);
-      var lp = polar(cx,cy,(rOuter+rInner)/2,(seg.start+seg.end)/2);
       var g = '<g class="seg'+(seg.start===sel?' sel':'')+'" data-start="'+seg.start+'" data-end="'+seg.end+'" data-name="'+esc(info.name)+'" data-memo="'+esc(info.memo)+'" data-color="'+esc(info.textColor)+'">'
         + '<title>'+esc(info.name+(info.memo?' · '+info.memo:'')+' '+info.time)+'</title>'
         + '<path d="'+donutPath(cx,cy,rOuter,rInner,seg.start,seg.end)+'" fill="'+info.color+'" stroke="var(--gap-ring)" stroke-width="1.5"></path>'
-        + '<text class="seg-label" x="'+lp.x.toFixed(2)+'" y="'+lp.y.toFixed(2)+'" text-anchor="middle" dominant-baseline="central" font-size="'+(size*(big?0.058:0.045)).toFixed(2)+'" stroke-width="'+(size*0.012).toFixed(2)+'" font-family="Sora, sans-serif">'+esc(info.name)+'</text>'
         + '</g>';
       // the highlighted slice goes last so it is drawn over its neighbours
       if (seg.start === sel){ selPart = g; selInfo = info; } else segParts.push(g);
@@ -464,7 +460,7 @@
       + parts.join('') + center + '</svg>';
   }
 
-  /* click a slice: it pops out with its name on it, the rest dims, and the middle shows its time.
+  /* click a slice: it pops out, the rest dims, and the middle shows its name, time and memo.
      Clicking it again (or the empty middle) puts the clock back. One highlighted slice at a time. */
   function selectClockSeg(svg, g){
     Array.prototype.forEach.call(document.querySelectorAll('svg.clock.has-sel'), function(other){

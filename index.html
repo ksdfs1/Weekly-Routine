@@ -144,8 +144,6 @@
   svg.clock .seg{ cursor:pointer; transform-box:view-box; transform-origin:50% 50%; transition:transform .25s ease, opacity .25s ease, filter .25s ease; }
   svg.clock.has-sel .seg{ opacity:.3; filter:blur(.7px) saturate(.6); }
   svg.clock.has-sel .seg.sel{ opacity:1; filter:drop-shadow(0 0 6px rgba(0,0,0,.55)); transform:scale(1.07); }
-  svg.clock .seg-label{ opacity:0; pointer-events:none; font-weight:700; fill:#fff; stroke:rgba(8,13,26,.8); paint-order:stroke; stroke-linejoin:round; transition:opacity .2s ease; }
-  svg.clock .seg.sel .seg-label{ opacity:1; }
   svg.clock .c-sel, svg.clock.has-sel .c-def{ display:none; }
   svg.clock.has-sel .c-sel{ display:inline; }
   /* "지금" bar: what the routine says you should be doing right now (today's active case) */
@@ -190,7 +188,7 @@
     .field.grow{ flex:1 1 auto; }
   }
   @media (prefers-reduced-motion:reduce){
-    .toast, svg.clock .seg, svg.clock .seg-label{ transition:none; }
+    .toast, svg.clock .seg{ transition:none; }
   }
 
   /* ---- ?view=widget: compact week strip for the PC desktop widget (desktop-widget/) ---- */
@@ -200,20 +198,38 @@
   html.widget .nowbar{ padding:6px 12px; border-radius:12px; flex:0 0 auto; }
   html.widget .nowbar-title{ font-size:.9rem; }
   html.widget .nowbar-sub{ font-size:.72rem; line-height:1.35; }
-  .wgrid{ flex:1 1 auto; min-height:0; display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:8px; }
-  .wcard{ min-height:0; background:var(--surface); border:1px solid var(--border-soft); border-radius:12px; padding:6px 4px; display:flex; flex-direction:column; align-items:center; gap:2px; }
-  .wcard.today{ border-color:var(--accent); background:var(--surface-2); }
-  .wcard-label{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:.78rem; color:var(--text); }
-  .wcard.today .wcard-label{ color:var(--accent); }
-  .wcard-clock{ flex:1 1 auto; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; }
-  .wcard-clock svg{ width:auto !important; height:100% !important; max-width:100%; max-height:100%; }
-  .wcard-select{ width:100%; min-width:0; font-size:.68rem; padding:2px 4px; border-radius:6px; background:var(--surface-2); color:var(--text-dim); cursor:pointer; }
-  .wcard-select:hover{ border-color:var(--accent); color:var(--text); }
+  /* one day at a time, laid out like the Android widget: time + clock on the left 40%, the rest on the right */
+  .wbody{ flex:1 1 auto; min-height:0; display:flex; gap:12px; user-select:none; -webkit-user-select:none; }
+  .wleft{ flex:0 0 40%; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .wnow-time{ font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:800; font-size:1.3rem; line-height:1.15; color:var(--text); }
+  .wclock{ flex:1 1 auto; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; }
+  .wclock svg{ width:auto !important; height:100% !important; max-width:100%; max-height:100%; }
+  .wright{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .whead{ display:flex; align-items:center; gap:6px; }
+  .wday-title{ flex:0 0 auto; font-family:"Sora", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:.85rem; color:var(--text); white-space:nowrap; }
+  .wday-title.today{ color:var(--accent); }
+  .wcase-select{ flex:1 1 auto; min-width:0; font-size:.72rem; padding:3px 8px; border-radius:999px; background:var(--surface-2); color:var(--text-dim); cursor:pointer; }
+  .wcase-select:hover{ border-color:var(--accent); color:var(--text); }
+  /* "앱 열기": only while the pointer is over the widget; keeps its space so nothing shifts */
+  .wopen{ flex:0 0 auto; visibility:hidden; opacity:0; transition:opacity .2s ease, visibility .2s; font-size:.72rem; font-weight:700; color:var(--accent-ink); background:var(--accent); border-radius:999px; padding:3px 10px; text-decoration:none; white-space:nowrap; }
+  html.widget:hover .wopen{ visibility:visible; opacity:1; }
+  .wlist{ flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:1px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+  .wrow{ display:flex; align-items:center; gap:7px; padding:2px 6px; border:1px solid transparent; border-radius:6px; font-size:.76rem; }
+  .wrow.now{ background:rgba(245,185,92,.2); border-color:var(--accent); }
+  .wrow .wdot{ width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+  .wrow .wtime{ color:var(--text-dim); white-space:nowrap; }
+  .wrow .wlbl{ color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wlist .empty{ padding:10px; font-size:.75rem; }
+  .wdays{ flex:0 0 auto; display:flex; justify-content:center; gap:3px; }
+  .wday{ appearance:none; border:1px solid transparent; background:transparent; color:var(--text-mute); font:inherit; font-size:.68rem; font-weight:600; padding:1px 6px; border-radius:6px; cursor:pointer; }
+  .wday:hover{ color:var(--text); }
+  .wday.today{ color:var(--accent); }
+  .wday.active{ background:var(--surface-3); border-color:var(--border); color:var(--text); }
   /* inside the desktop app (WebView2): a move handle and a resize grip that show on hover */
   .whandle{ display:none; position:fixed; z-index:40; opacity:0; transition:opacity .2s ease; user-select:none; }
   html.hosted .whandle{ display:block; }
   html.hosted:hover .whandle{ opacity:1; }
-  .whandle.move{ top:4px; left:50%; transform:translateX(-50%); padding:1px 14px; border-radius:0 0 8px 8px; background:var(--surface-3); border:1px solid var(--border); border-top:none; color:var(--text-dim); font:600 11px/1.6 "IBM Plex Sans", system-ui, sans-serif; cursor:move; }
+  .whandle.move{ top:3px; left:3px; padding:1px 10px; border-radius:8px; background:var(--surface-3); border:1px solid var(--border); color:var(--text-dim); font:600 11px/1.6 "IBM Plex Sans", system-ui, sans-serif; cursor:move; }
   .whandle.move:hover{ color:var(--text); border-color:var(--accent); }
   .whandle.grip{ right:1px; bottom:1px; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 0 55%, var(--text-mute) 55% 62%, transparent 62% 72%, var(--text-mute) 72% 79%, transparent 79%); }
   .whandle.grip:hover{ background:linear-gradient(135deg, transparent 0 55%, var(--accent) 55% 62%, transparent 62% 72%, var(--accent) 72% 79%, transparent 79%); }
@@ -326,7 +342,8 @@
     refreshArmed: false,
     catDeleteArmedId: null,
     tokenDialogOpen: false,
-    clockSel: null           // highlighted clock slice: {key:'dayKey|caseId', start:minute}
+    clockSel: null,          // highlighted clock slice: {key:'dayKey|caseId', start:minute}
+    dayChangedAt: 0
   };
   var dirty = false;
   var saving = false;
@@ -433,11 +450,9 @@
     segs.forEach(function(seg){
       if (seg.end <= seg.start) return;   // swallowed by an overlapping block
       var info = segInfo(seg);
-      var lp = polar(cx,cy,(rOuter+rInner)/2,(seg.start+seg.end)/2);
       var g = '<g class="seg'+(seg.start===sel?' sel':'')+'" data-start="'+seg.start+'" data-end="'+seg.end+'" data-name="'+esc(info.name)+'" data-memo="'+esc(info.memo)+'" data-color="'+esc(info.textColor)+'">'
         + '<title>'+esc(info.name+(info.memo?' · '+info.memo:'')+' '+info.time)+'</title>'
         + '<path d="'+donutPath(cx,cy,rOuter,rInner,seg.start,seg.end)+'" fill="'+info.color+'" stroke="var(--gap-ring)" stroke-width="1.5"></path>'
-        + '<text class="seg-label" x="'+lp.x.toFixed(2)+'" y="'+lp.y.toFixed(2)+'" text-anchor="middle" dominant-baseline="central" font-size="'+(size*(big?0.058:0.045)).toFixed(2)+'" stroke-width="'+(size*0.012).toFixed(2)+'" font-family="Sora, sans-serif">'+esc(info.name)+'</text>'
         + '</g>';
       // the highlighted slice goes last so it is drawn over its neighbours
       if (seg.start === sel){ selPart = g; selInfo = info; } else segParts.push(g);
@@ -497,7 +512,7 @@
       + parts.join('') + center + '</svg>';
   }
 
-  /* click a slice: it pops out with its name on it, the rest dims, and the middle shows its time.
+  /* click a slice: it pops out, the rest dims, and the middle shows its name, time and memo.
      Clicking it again (or the empty middle) puts the clock back. One highlighted slice at a time. */
   function selectClockSeg(svg, g){
     Array.prototype.forEach.call(document.querySelectorAll('svg.clock.has-sel'), function(other){
@@ -577,21 +592,54 @@
       + '<div class="nowbar-sub">'+sub+'</div></div></div>';
   }
 
+  // the widget's day list keeps where it was scrolled across the 30s redraws (same day only)
+  var widgetListDay = -1;
+  function nowHHMM(){ var d = new Date(); return pad2(d.getHours())+':'+pad2(d.getMinutes()); }
+
+  // ?view=widget: one day like the Android widget — swipe (drag) left/right or tap the day strip to change day
   function renderWidget(){
     applyCaseOverrides();
-    var cards = state.days.map(function(day, i){
-      var c = activeCase(day);
-      var today = isTodayIndex(i);
-      var options = day.cases.map(function(cs){
-        return '<option value="'+cs.id+'"'+(cs.id===c.id?' selected':'')+'>'+esc(cs.name)+'</option>';
-      }).join('');
-      return '<div class="wcard'+(today?' today':'')+'">'
-        + '<span class="wcard-label">'+esc(day.short)+(today?' · 오늘':'')+'</span>'
-        + '<div class="wcard-clock">'+renderClockSVG(day, c, 200, today)+'</div>'
-        + '<select class="wcard-select" data-action="widget-set-case" data-day-index="'+i+'" title="'+esc(c.name)+'">'+options+'</select>'
-        + '</div>';
+    var i = ui.dayIndex;
+    var day = dayByIndex(i);
+    var c = activeCase(day);
+    var today = isTodayIndex(i);
+    var st = today ? nowStatus() : null;
+    var options = day.cases.map(function(cs){
+      return '<option value="'+cs.id+'"'+(cs.id===c.id?' selected':'')+'>'+esc(cs.name)+'</option>';
     }).join('');
-    app.innerHTML = nowStatusHtml() + '<div class="wgrid">' + cards + '</div>';
+    var blocks = sortedBlocks(c);
+    var rows = blocks.length ? blocks.map(function(b){
+      var cat = catById(b.catId) || {color:'var(--unassigned)', name:'?'};
+      return '<div class="wrow'+(st && st.cur === b ? ' now' : '')+'">'
+        + '<span class="wdot" style="background:'+cat.color+'"></span>'
+        + '<span class="wtime tabular">'+fmtMin(b.start)+'–'+fmtMin(b.end)+'</span>'
+        + '<span class="wlbl">'+esc(b.label || cat.name)+'</span></div>';
+    }).join('') : '<div class="empty">이 케이스에는 블록이 없어요</div>';
+    var days = state.days.map(function(d, idx){
+      return '<button class="wday'+(idx===i?' active':'')+(isTodayIndex(idx)?' today':'')+'" data-action="set-day" data-day-index="'+idx+'">'+esc(d.short)+'</button>';
+    }).join('');
+
+    var oldList = document.getElementById('wlist');
+    var keepScroll = oldList && widgetListDay === i ? oldList.scrollTop : null;
+    app.innerHTML = '<div class="wbody daily-swipe" id="daily-swipe">'
+      + '<div class="wleft"><div class="wnow-time tabular" id="wnow-time">'+nowHHMM()+'</div>'
+      +   '<div class="wclock">'+renderClockSVG(day, c, 200, today)+'</div></div>'
+      + '<div class="wright">'
+      +   '<div class="whead"><span class="wday-title'+(today?' today':'')+'">'+esc(day.label)+(today?' · 오늘':'')+'</span>'
+      +     '<select class="wcase-select" data-action="widget-set-case" data-day-index="'+i+'" title="케이스 선택">'+options+'</select>'
+      +     '<a class="wopen" href="./" target="_blank" rel="noopener" title="Weekly Routine 앱 열기">앱 열기 ↗</a></div>'
+      +   nowStatusHtml()
+      +   '<div class="wlist" id="wlist">'+rows+'</div>'
+      +   '<div class="wdays">'+days+'</div>'
+      + '</div></div>';
+    var list = document.getElementById('wlist');
+    if (keepScroll !== null) list.scrollTop = keepScroll;
+    else {
+      // new day: start a row above the block that is on now (or at the top)
+      var cur = list.querySelector('.wrow.now');
+      list.scrollTop = cur && cur.previousElementSibling ? cur.previousElementSibling.offsetTop - list.offsetTop : 0;
+    }
+    widgetListDay = i;
   }
 
   function renderApp(){
@@ -934,7 +982,7 @@
     ui.displayScope = ui.displayScope === 'weekly' ? 'daily' : 'weekly';
     renderApp();
   }
-  function setDay(i){ ui.dayIndex = i; ui.editingBlockId = null; resetTransientUI(); renderApp(); }
+  function setDay(i){ ui.dayIndex = i; ui.dayChangedAt = Date.now(); ui.editingBlockId = null; resetTransientUI(); renderApp(); }
   function setCase(id){ dayByIndex(ui.dayIndex).activeCaseId = id; ui.editingBlockId = null; resetTransientUI(); markDirty(); }
 
   function addCase(){ ui.caseDialog = {mode:'add'}; renderApp(); }
@@ -1223,6 +1271,11 @@
   }
 
   setInterval(function(){
+    // the widget goes back to today 2 minutes after swiping away (and after midnight)
+    if (WIDGET_VIEW && !isTodayIndex(ui.dayIndex) && Date.now() - ui.dayChangedAt > 2*60*1000){
+      ui.dayIndex = (new Date().getDay() + 6) % 7;
+      clearClockSel();
+    }
     if (ui.mode === 'display'){ renderApp(); return; }
     // edit mode: a full re-render would wipe the form being typed in, so only swap the "지금" bar
     var bar = document.getElementById('now-status');
@@ -1299,7 +1352,14 @@
   renderApp();
   loadRemote().then(renderApp);
   // the desktop widget stays open for days, so it pulls edits made on other devices by itself
-  if (WIDGET_VIEW) setInterval(function(){ loadRemote().then(renderApp); }, 10*60*1000);
+  if (WIDGET_VIEW){
+    setInterval(function(){ loadRemote().then(renderApp); }, 10*60*1000);
+    // the clock above the donut ticks on its own, between the 30s redraws
+    setInterval(function(){
+      var t = document.getElementById('wnow-time');
+      if (t) t.textContent = nowHHMM();
+    }, 5000);
+  }
 
   /* offline support + home-screen install (see sw.js); harmless if unavailable, e.g. inside an embed */
   if ('serviceWorker' in navigator){

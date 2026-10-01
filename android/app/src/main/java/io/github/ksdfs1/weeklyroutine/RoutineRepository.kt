@@ -137,6 +137,12 @@ object Prefs {
     const val LAST_KEY = "last_key"
     const val TOKEN = "write_token"
     const val CASE_OVERRIDES = "case_overrides"
+    const val VIEW_DAY = "view_day"
+    const val VIEW_DAY_AT = "view_day_at"
+    const val LIST_SCROLL_KEY = "list_scroll_key"
+    const val SEL_DAY = "sel_day"
+    const val SEL_START = "sel_start"
+    const val SEL_AT = "sel_at"
 
     fun of(ctx: Context) = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
 }

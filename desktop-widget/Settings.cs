@@ -5,7 +5,7 @@ namespace WeeklyRoutineWidget;
 /// Window position/size, kept in %APPDATA%\WeeklyRoutineWidget\settings.json.
 sealed class Settings
 {
-    public const int DefaultWidth = 1280, DefaultHeight = 340;
+    public const int DefaultWidth = 640, DefaultHeight = 300;
 
     public int X { get; set; } = int.MinValue;   // MinValue = never placed yet
     public int Y { get; set; } = int.MinValue;
@@ -25,8 +25,9 @@ sealed class Settings
             if (File.Exists(FilePath))
             {
                 var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? new Settings();
-                // still the old, too-small default (960x250): move up to the new one, re-placed in the corner
-                if (s.Width == 960 && s.Height == 250)
+                // still an old default (960x250, or 1280x340 from the 7-day layout): take the current one,
+                // re-placed in the corner
+                if ((s.Width == 960 && s.Height == 250) || (s.Width == 1280 && s.Height == 340))
                 {
                     s.Width = DefaultWidth; s.Height = DefaultHeight;
                     s.X = s.Y = int.MinValue;
