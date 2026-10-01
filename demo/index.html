@@ -455,6 +455,7 @@
     dayIndex: (new Date().getDay() + 6) % 7,
     editingBlockId: null,
     caseDialog: null,        // {mode:'add'|'rename'}
+    caseMoveOpen: false,     // "다른 요일로 이동" row in the case bar
     caseDeleteArmed: false,
     refreshArmed: false,
     catDeleteArmedId: null,
@@ -825,10 +826,22 @@
           + '<button type="button" class="icon-btn" data-action="cancel-case-dialog">취소</button>'
           + '</form>'
           + '<div id="case-dialog-err" style="width:100%;"></div>';
+      } else if (ui.caseMoveOpen){
+        var moveTargets = state.days.map(function(d, di){
+          if (di === ui.dayIndex) return '';
+          return '<option value="'+di+'"'+(di === (ui.dayIndex+1)%7 ? ' selected' : '')+'>'+esc(d.label)+'</option>';
+        }).join('');
+        html += '<form id="case-move-form" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
+          + '<span class="hint" style="font-size:.82rem;">\''+esc(c.name)+'\' →</span>'
+          + '<select id="case-move-target">'+moveTargets+'</select>'
+          + '<button type="submit" class="btn primary">이동</button>'
+          + '<button type="button" class="icon-btn" data-action="cancel-case-move">취소</button>'
+          + '</form>';
       } else {
         html += '<button class="icon-btn" data-action="add-case">+ 케이스 추가</button>'
           + '<button class="icon-btn" data-action="rename-case">이름 변경</button>'
           + '<button class="icon-btn" data-action="duplicate-case">복제</button>'
+          + '<button class="icon-btn" data-action="move-case"'+(day.cases.length<=1?' disabled title="케이스가 하나뿐인 요일에서는 옮길 수 없어요"':'')+'>다른 요일로 이동</button>'
           + '<button class="icon-btn danger" data-action="delete-case"'+(day.cases.length<=1?' disabled':'')+'>'+(ui.caseDeleteArmed?'정말 삭제할까요?':'삭제')+'</button>';
       }
       html += '</div>';
@@ -1219,7 +1232,7 @@
   }
 
   /* ============== actions ============== */
-  function resetTransientUI(){ ui.caseDialog = null; ui.caseDeleteArmed = false; ui.catDeleteArmedId = null; }
+  function resetTransientUI(){ ui.caseDialog = null; ui.caseMoveOpen = false; ui.caseDeleteArmed = false; ui.catDeleteArmedId = null; }
   function toggleEditMode(){
     if (!canWrite) return;
     ui.mode = ui.mode === 'edit' ? 'display' : 'edit';
@@ -1273,6 +1286,38 @@
     day.activeCaseId = nc.id;
     markDirty();
   }
+  // move the selected case to another day; the day it leaves keeps at least one case
+  function openCaseMove(){
+    if (dayByIndex(ui.dayIndex).cases.length <= 1) return;
+    ui.caseDialog = null; ui.caseDeleteArmed = false;
+    ui.caseMoveOpen = true;
+    renderApp();
+  }
+  function cancelCaseMove(){ ui.caseMoveOpen = false; renderApp(); }
+  function submitCaseMove(ev){
+    ev.preventDefault();
+    var from = dayByIndex(ui.dayIndex);
+    var toIndex = parseInt(document.getElementById('case-move-target').value, 10);
+    var to = dayByIndex(toIndex);
+    if (from.cases.length <= 1 || !to || to === from) return;
+    var idx = from.cases.findIndex(function(cs){ return cs.id === from.activeCaseId; });
+    if (idx < 0) idx = 0;
+    var cs = from.cases.splice(idx, 1)[0];
+    from.activeCaseId = from.cases[Math.max(0, idx-1)].id;
+    // ids stay unique within the new day, and a name already used there gets a number
+    if (to.cases.some(function(x){ return x.id === cs.id; })) cs.id = uid(to.key);
+    var base = cs.name, n = 2;
+    var taken = function(name){ return to.cases.some(function(x){ return x.name.trim().toLowerCase() === name.trim().toLowerCase(); }); };
+    while (taken(cs.name)) cs.name = base + ' ' + (n++);
+    to.cases.push(cs);
+    to.activeCaseId = cs.id;
+    ui.caseMoveOpen = false;
+    ui.dayIndex = toIndex; ui.dayChangedAt = Date.now(); ui.editingBlockId = null;
+    toast(from.label + '의 \'' + base + '\'을(를) ' + to.label + '로 옮겼어요'
+      + (cs.name !== base ? ' (같은 이름이 있어 \'' + cs.name + '\'(으)로 바꿨어요)' : '') + '. 저장을 눌러 반영하세요.');
+    markDirty();
+  }
+
   var deleteArmTimer = null;
   function deleteCase(){
     var day = dayByIndex(ui.dayIndex);
@@ -1492,6 +1537,8 @@
       else if (action === 'rename-case') renameCase();
       else if (action === 'duplicate-case') duplicateCase();
       else if (action === 'delete-case') deleteCase();
+      else if (action === 'move-case') openCaseMove();
+      else if (action === 'cancel-case-move') cancelCaseMove();
       else if (action === 'cancel-case-dialog') cancelCaseDialog();
       else if (action === 'edit-block') editBlock(el.dataset.blockId);
       else if (action === 'delete-block') deleteBlock(el.dataset.blockId);
@@ -1531,6 +1578,7 @@
     document.addEventListener('submit', function(ev){
       if (ev.target && ev.target.id === 'block-form') submitBlockForm(ev);
       else if (ev.target && ev.target.id === 'case-dialog-form') submitCaseDialog(ev);
+      else if (ev.target && ev.target.id === 'case-move-form') submitCaseMove(ev);
       else if (ev.target && ev.target.id === 'token-dialog-form') submitTokenDialog(ev);
     });
     window.addEventListener('beforeunload', function(ev){
