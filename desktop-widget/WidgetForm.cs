@@ -11,6 +11,8 @@ namespace WeeklyRoutineWidget;
 sealed class WidgetForm : Form
 {
     const int AdjustPad = 8;
+    // narrow enough for the ~320px single-day layout (index.html has a narrow mode below 420px)
+    const int MinWidth = 240, MinHeight = 140;
     static readonly Color Navy = Color.FromArgb(0x08, 0x0d, 0x1a);
     static readonly Color Accent = Color.FromArgb(0xf5, 0xb9, 0x5c);
 
@@ -30,7 +32,7 @@ sealed class WidgetForm : Form
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
         BackColor = Navy;
-        MinimumSize = new Size(360, 140);
+        MinimumSize = new Size(MinWidth, MinHeight);
         Bounds = InitialBounds();
 
         web.DefaultBackgroundColor = Navy;   // no white flash while the page loads
@@ -185,7 +187,7 @@ sealed class WidgetForm : Form
 
     Rectangle InitialBounds()
     {
-        var size = new Size(Math.Max(settings.Width, 360), Math.Max(settings.Height, 140));
+        var size = new Size(Math.Max(settings.Width, MinWidth), Math.Max(settings.Height, MinHeight));
         if (settings.X == int.MinValue) return DefaultBounds(size);
         var r = new Rectangle(new Point(settings.X, settings.Y), size);
         return IsVisibleOnSomeScreen(r) ? r : DefaultBounds(size);

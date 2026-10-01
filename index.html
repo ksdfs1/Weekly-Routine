@@ -225,6 +225,20 @@
   .wday:hover{ color:var(--text); }
   .wday.today{ color:var(--accent); }
   .wday.active{ background:var(--surface-3); border-color:var(--border); color:var(--text); }
+  .wday-title .wd-short{ display:none; }
+  /* narrow widget (about 320px): short day name, one-line "지금", and "앱 열기" floats over the corner
+     instead of keeping its own space, so the case dropdown stays usable */
+  @media (max-width:420px){
+    html.widget #app{ padding:8px; gap:6px; }
+    html.widget .wbody{ gap:8px; }
+    html.widget .nowbar{ padding:5px 8px; gap:6px; border-radius:10px; }
+    html.widget .nowbar-tag{ display:none; }
+    html.widget .nowbar-sub{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .wday-title .wd-long{ display:none; }
+    .wday-title .wd-short{ display:inline; }
+    .wopen{ position:fixed; top:6px; right:6px; z-index:41; box-shadow:0 4px 12px rgba(0,0,0,.45); }
+    .wrow{ gap:5px; padding:2px 4px; }
+  }
   /* inside the desktop app (WebView2): a move handle and a resize grip that show on hover */
   .whandle{ display:none; position:fixed; z-index:40; opacity:0; transition:opacity .2s ease; user-select:none; }
   html.hosted .whandle{ display:block; }
@@ -625,7 +639,7 @@
       + '<div class="wleft"><div class="wnow-time tabular" id="wnow-time">'+nowHHMM()+'</div>'
       +   '<div class="wclock">'+renderClockSVG(day, c, 200, today)+'</div></div>'
       + '<div class="wright">'
-      +   '<div class="whead"><span class="wday-title'+(today?' today':'')+'">'+esc(day.label)+(today?' · 오늘':'')+'</span>'
+      +   '<div class="whead"><span class="wday-title'+(today?' today':'')+'"><span class="wd-long">'+esc(day.label)+(today?' · 오늘':'')+'</span><span class="wd-short">'+esc(day.short)+'</span></span>'
       +     '<select class="wcase-select" data-action="widget-set-case" data-day-index="'+i+'" title="케이스 선택">'+options+'</select>'
       +     '<a class="wopen" href="./" target="_blank" rel="noopener" title="Weekly Routine 앱 열기">앱 열기 ↗</a></div>'
       +   nowStatusHtml()
