@@ -421,7 +421,7 @@
     dayIndex: (new Date().getDay() + 6) % 7,
     editingBlockId: null,
     caseDialog: null,        // {mode:'add'|'rename'}
-    caseMoveOpen: false,     // "다른 요일로 이동" row in the case bar
+    caseMoveOpen: false,     // "이동" (to another day) row in the case bar
     caseDeleteArmed: false,
     refreshArmed: false,
     catDeleteArmedId: null,
@@ -807,7 +807,7 @@
         html += '<button class="icon-btn" data-action="add-case">+ 케이스 추가</button>'
           + '<button class="icon-btn" data-action="rename-case">이름 변경</button>'
           + '<button class="icon-btn" data-action="duplicate-case">복제</button>'
-          + '<button class="icon-btn" data-action="move-case"'+(day.cases.length<=1?' disabled title="케이스가 하나뿐인 요일에서는 옮길 수 없어요"':'')+'>다른 요일로 이동</button>'
+          + '<button class="icon-btn" data-action="move-case"'+(day.cases.length<=1?' disabled title="케이스가 하나뿐인 요일에서는 옮길 수 없어요"':' title="이 케이스를 다른 요일로 옮기기"')+'>이동</button>'
           + '<button class="icon-btn danger" data-action="delete-case"'+(day.cases.length<=1?' disabled':'')+'>'+(ui.caseDeleteArmed?'정말 삭제할까요?':'삭제')+'</button>';
       }
       html += '</div>';
