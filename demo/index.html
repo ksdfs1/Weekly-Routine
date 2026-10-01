@@ -1149,7 +1149,7 @@
         + '</div>';
     }).join('') : '<div class="empty">아직 블록이 없어요. 위에서 첫 블록을 추가해보세요.</div>';
 
-    var miniSvg = renderClockSVG(day, c, 200, isTodayIndex(ui.dayIndex));
+    var miniSvg = renderClockSVG(day, c, 270, isTodayIndex(ui.dayIndex));
 
     var catRows = state.categories.map(function(cat){
       var armed = ui.catDeleteArmedId === cat.id;
@@ -1165,7 +1165,7 @@
       + '<div class="panel-title"><h2>블록 편집 · '+esc(day.label)+' · '+esc(c.name)+'</h2></div>'
       + '<div class="hint">5분 단위로 시작·종료 시간을 지정해 블록을 추가하세요. 채워지지 않은 시간은 시계에 회색 "미지정"으로 표시돼요.</div>'
       + '<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;">'
-      + '<div style="flex:1 1 320px;min-width:280px;display:flex;flex-direction:column;gap:10px;">' + form + '<div class="blocklist">' + rows + '</div></div>'
+      + '<div style="flex:1 1 260px;min-width:240px;display:flex;flex-direction:column;gap:10px;">' + form + '<div class="blocklist">' + rows + '</div></div>'
       + '<div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;">' + miniSvg + '<span class="hint">실시간 미리보기</span></div>'
       + '</div></div>'
       + '<div class="panel">'
