@@ -18,12 +18,14 @@ import android.os.Build
  */
 object Notifier {
     private const val NOTIFICATION_ID = 1
-    private val VIBRATION = longArrayOf(0, 250, 150, 250)
+
+    /** Channels that set a fixed vibration pattern, ignoring the phone's own vibration setting. */
+    private val OBSOLETE_CHANNELS = listOf("status_sound_vibrate", "status_vibrate")
 
     private enum class Channel(val id: String, val title: String, val sound: Boolean, val vibrate: Boolean) {
-        SOUND_VIBRATE("status_sound_vibrate", "상태 변경 (소리+진동)", true, true),
+        SOUND_VIBRATE("status_sound_vibrate_v2", "상태 변경 (소리+진동)", true, true),
         SOUND("status_sound", "상태 변경 (소리)", true, false),
-        VIBRATE("status_vibrate", "상태 변경 (진동)", false, true),
+        VIBRATE("status_vibrate_v2", "상태 변경 (진동)", false, true),
         SILENT("status_silent", "상태 변경 (무음)", false, false),
     }
 
@@ -33,12 +35,13 @@ object Notifier {
             .setUsage(AudioAttributes.USAGE_NOTIFICATION)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
+        OBSOLETE_CHANNELS.forEach(nm::deleteNotificationChannel)
         for (c in Channel.entries) {
             val ch = NotificationChannel(c.id, c.title, NotificationManager.IMPORTANCE_HIGH)
             ch.description = "루틴상 지금 해야 할 일이 바뀌면 알려줘요"
             ch.setSound(if (c.sound) RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION) else null, if (c.sound) audio else null)
+            // No vibrationPattern: the channel then follows the phone's default vibration.
             ch.enableVibration(c.vibrate)
-            ch.vibrationPattern = if (c.vibrate) VIBRATION else null
             nm.createNotificationChannel(ch)
         }
     }
