@@ -33,11 +33,15 @@ object RoutineRepository {
     fun isStale(ctx: Context): Boolean = System.currentTimeMillis() - lastSync(ctx) > STALE_MS
 
     /** blocking — call off the main thread. Returns true when fresh data was stored. */
-    fun fetch(ctx: Context): Boolean {
-        val body = get() ?: return false
-        if (Routine.parse(body) == null) return false   // "null" = nothing saved on the server yet
-        store(ctx, body)
-        return true
+    fun fetch(ctx: Context): Boolean = fetchResult(ctx) != FetchResult.FAILED
+
+    enum class FetchResult { CHANGED, SAME, FAILED }
+
+    /** blocking. Like [fetch], but also tells whether the routine differed from the cache. */
+    fun fetchResult(ctx: Context): FetchResult {
+        val body = get() ?: return FetchResult.FAILED
+        if (Routine.parse(body) == null) return FetchResult.FAILED   // "null" = nothing saved on the server yet
+        return if (store(ctx, body)) FetchResult.CHANGED else FetchResult.SAME
     }
 
     /* ---- picking a day's case from the widget ---- */
@@ -158,6 +162,7 @@ object Prefs {
     const val SEL_DAY = "sel_day"
     const val SEL_START = "sel_start"
     const val SEL_AT = "sel_at"
+    const val REFRESHING_AT = "refreshing_at"
 
     fun of(ctx: Context) = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
 }

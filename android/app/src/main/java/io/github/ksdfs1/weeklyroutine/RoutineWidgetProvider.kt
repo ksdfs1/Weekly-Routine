@@ -8,9 +8,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
+import android.widget.Toast
 import java.util.Calendar
 
 /**
@@ -38,10 +41,7 @@ class RoutineWidgetProvider : AppWidgetProvider() {
     override fun onReceive(ctx: Context, intent: Intent) {
         super.onReceive(ctx, intent)
         when (intent.action) {
-            ACTION_REFRESH -> {
-                SyncWorker.syncNow(ctx)
-                updateAll(ctx)
-            }
+            ACTION_REFRESH -> refresh(ctx)
             ACTION_TICK -> updateAll(ctx)
             ACTION_PREV -> { ViewDay.set(ctx, (ViewDay.get(ctx) + 6) % 7); updateAll(ctx) }
             ACTION_NEXT -> { ViewDay.set(ctx, (ViewDay.get(ctx) + 1) % 7); updateAll(ctx) }
@@ -53,7 +53,37 @@ class RoutineWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /** ↻: lights the icon while fetching, then says how it went in a toast */
+    private fun refresh(ctx: Context) {
+        val prefs = Prefs.of(ctx)
+        prefs.edit().putLong(Prefs.REFRESHING_AT, System.currentTimeMillis()).apply()
+        updateAll(ctx)
+        val pending = goAsync()
+        Thread {
+            try {
+                val result = RoutineRepository.fetchResult(ctx)
+                prefs.edit().remove(Prefs.REFRESHING_AT).apply()
+                if (result == RoutineRepository.FetchResult.FAILED) {
+                    SyncWorker.syncNow(ctx)   // try again once the phone is online
+                    updateAll(ctx)
+                } else {
+                    SyncWorker.afterSync(ctx)
+                }
+                val msg = when (result) {
+                    RoutineRepository.FetchResult.CHANGED -> "새 루틴을 불러왔어요"
+                    RoutineRepository.FetchResult.SAME -> "이미 최신 루틴이에요"
+                    RoutineRepository.FetchResult.FAILED -> "불러오지 못했어요. 인터넷 연결을 확인해주세요"
+                }
+                Handler(Looper.getMainLooper()).post { Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show() }
+            } finally {
+                pending.finish()
+            }
+        }.start()
+    }
+
     companion object {
+        /** the ↻ icon stays lit at most this long, in case the process dies mid-fetch */
+        private const val REFRESH_MAX_MS = 30_000L
         const val ACTION_REFRESH = "io.github.ksdfs1.weeklyroutine.REFRESH"
         const val ACTION_TICK = "io.github.ksdfs1.weeklyroutine.TICK"
         const val ACTION_PREV = "io.github.ksdfs1.weeklyroutine.PREV_DAY"
@@ -116,6 +146,9 @@ class RoutineWidgetProvider : AppWidgetProvider() {
                 Intent(ctx, RoutineWidgetProvider::class.java).setAction(ACTION_REFRESH),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             ))
+            val refreshing = System.currentTimeMillis() - Prefs.of(ctx).getLong(Prefs.REFRESHING_AT, 0L) < REFRESH_MAX_MS
+            v.setInt(R.id.refresh, "setColorFilter", ctx.getColor(if (refreshing) R.color.accent else R.color.text_dim))
+            v.setInt(R.id.refresh, "setBackgroundResource", if (refreshing) R.drawable.widget_day_active else 0)
 
             val shown = ViewDay.get(ctx)
             v.setOnClickPendingIntent(R.id.day_title, PendingIntent.getActivity(
